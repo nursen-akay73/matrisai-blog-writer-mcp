@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "qodi-bilgi-yerel": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/qodi-mcp/src/server.js"]
+    }
+  }
+}

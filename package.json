@@ -1,0 +1,24 @@
+{
+  "name": "qodi-mcp",
+  "version": "2.1.0",
+  "description": "Qodi bilgi + blog kaydet/kontrol MCP sunucusu (getQodiInfo, writeBlog, checkBlog)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "qodi",
+    "matriks",
+    "model-context-protocol"
+  ],
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.0"
+  }
+}
