@@ -1,11 +1,10 @@
 /**
  * Blog yazma / kontrol yardımcıları.
  *
- * writeBlog  → LLM'in ürettiği yazıyı kaydeder + temel kurallara göre kabul/red
- * checkBlog  → kayıtlı yazıyı dil, SEO, yasal uyarı, ton açısından skorlar
- *
- * Not: Metni üreten LLM'dir; bu modül kaydetme + kalite kapısıdır.
- * İsteğe bağlı olarak matrisai-blog-mcp ile birlikte de kullanılabilir.
+ * writeBlog   → yazıyı kaydeder + kural kapısı
+ * refineBlog  → Brand Refiner (kurumsal ton / konumlandırma)
+ * checkBlog   → skor
+ * reviewBlog  → checkBlog + Matriks checklist → ayrı review MD
  */
 
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
@@ -29,10 +28,6 @@ const LEGAL_PATTERNS = [
 const BRAND_PATTERNS = [/qodi/i, /matriks/i];
 
 const FORBIDDEN_COMING_SOON_AS_LIVE = [
-  {
-    re: /belge analizi.{0,40}(mevcut|kullanılabilir|şimdi|canlı)/i,
-    tip: '"Belge Analizi" yakında gelecek; mevcut özellik gibi sunulmamalı.',
-  },
   {
     re: /portföy optimizasyonu.{0,40}(mevcut|kullanılabilir|şimdi|canlı)/i,
     tip: '"Portföy Optimizasyonu" yakında gelecek; mevcut özellik gibi sunulmamalı.',
@@ -343,4 +338,229 @@ export async function listPosts(postsDir) {
   return ids;
 }
 
-export { CATEGORIES, MIN_WORDS, MAX_WORDS };
+const LEGAL_BLOCK =
+  "Qodi bilgilendirme amaçlıdır; sunduğu veri, analiz ve içerikler yatırım tavsiyesi niteliği taşımaz. " +
+  "Yatırım tavsiyesi değildir.";
+
+const ECOSYSTEM_BLOCK =
+  "Matriks AI ekosisteminde **Qodi** kullanıcıyla sohbet eden finansal asistan, " +
+  "**Matriks MCP** bu deneyimi Claude / ChatGPT / Cursor gibi araçlara taşıyan köprü, " +
+  "**Quantex** ise kantitatif analiz ve sinyal platformudur. Bu ürünler birbirinin yerine geçmez; tamamlar.";
+
+/**
+ * Brand Refiner — taslağı Matriks tonuna ve doğru konumlandırmaya çeker.
+ * @param {{ title: string, content: string, keywords?: string[] }} input
+ */
+export function refineBlog(input) {
+  let title = String(input.title || "").trim();
+  let content = String(input.content || "").trim();
+  /** @type {string[]} */
+  const changes = [];
+
+  // Clickbait yumuşatma
+  const beforeTitle = title;
+  title = title
+    .replace(/#\s*1\b/gi, "")
+    .replace(/garantili|muhteşem|devrim/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (title !== beforeTitle) changes.push("Başlıktan abartılı ifade temizlendi.");
+
+  // Ekosistem konumu
+  if (!/matriks mcp/i.test(content) || !/quantex/i.test(content)) {
+    if (!/ekosistem/i.test(content)) {
+      content = content.replace(
+        /(##\s+[^\n]+\n)/,
+        `$1\n${ECOSYSTEM_BLOCK}\n\n`
+      );
+      changes.push("Ekosistem konumlandırma paragrafı eklendi.");
+    }
+  } else if (!/birbirinin yerine geçmez|tamamlar/i.test(content)) {
+    content += `\n\n## Ekosistem notu\n\n${ECOSYSTEM_BLOCK}\n`;
+    changes.push("Ekosistem netleştirme notu eklendi.");
+  }
+
+  // Qodi/Quantex karışıklığına karşı yumuşak uyarı (metin ekleme)
+  if (/qodi.{0,40}kantitatif|quantex.{0,40}sohbet asistan/i.test(content)) {
+    content +=
+      "\n\n> Not: Qodi sohbet asistanı; Quantex kantitatif platformdur — roller karıştırılmamalıdır.\n";
+    changes.push("Ürün rolü uyarı notu eklendi.");
+  }
+
+  // Yasal uyarı
+  if (!LEGAL_PATTERNS.some((re) => re.test(content))) {
+    content += `\n\n## Yasal uyarı\n\n${LEGAL_BLOCK}\n`;
+    changes.push("Yasal uyarı bloğu eklendi.");
+  }
+
+  // KVKK / yerel
+  if (!/kvkk|yerel işleme|yerel veri/i.test(content)) {
+    content = content.replace(
+      /(##\s*Sonuç[\s\S]*?)(?=\n##\s*Yasal|$)/i,
+      (m) =>
+        m +
+        "\nQodi’nin %100 yerel veri işleme ve KVKK uyumu, kurumsal güven için temel bir farklılaşmadır.\n"
+    );
+    changes.push("KVKK / yerel işleme vurgusu güçlendirildi.");
+  }
+
+  if (changes.length === 0) changes.push("Metin zaten marka kurallarına yakındı; minimal dokunuş.");
+
+  return {
+    title: title.slice(0, TITLE_MAX),
+    content: content.trim(),
+    changes,
+    skill: "brand-refiner",
+  };
+}
+
+/**
+ * Matriks checklist (skills/matriks-checklist.md ile uyumlu).
+ * @param {{ title: string, content: string, keywords?: string[], wordCount?: number }} post
+ */
+export function runMatriksChecklist(post) {
+  const content = post.content || "";
+  const title = post.title || "";
+  const keywords = Array.isArray(post.keywords) ? post.keywords : [];
+  const wordCount = post.wordCount ?? countWords(content);
+  const haystack = `${title}\n${content}`;
+
+  /** @type {Array<{ id: number, text: string, status: 'pass'|'fail'|'warn', detail?: string }>} */
+  const items = [];
+
+  const push = (id, text, ok, warn = false, detail) => {
+    items.push({
+      id,
+      text,
+      status: ok ? "pass" : warn ? "warn" : "fail",
+      detail,
+    });
+  };
+
+  push(1, "Yasal uyarı var mı?", LEGAL_PATTERNS.some((re) => re.test(content)));
+  push(2, "Qodi ve Matriks adları geçiyor mu?", /qodi/i.test(content) && /matriks/i.test(content));
+  const roleOk =
+    !/qodi.{0,40}kantitatif platform/i.test(content) &&
+    !/quantex.{0,30}sohbet/i.test(content);
+  push(3, "Ürün konumlandırması doğru mu? (Qodi ≠ Quantex ≠ MCP)", roleOk, false,
+    roleOk ? undefined : "Olası ürün rolü karışıklığı");
+  push(4, "Abartılı getiri / garanti iddiası yok mu?",
+    !/garantili getiri|kesin kazanç|%100 getiri/i.test(content));
+  let comingSoon = false;
+  for (const rule of FORBIDDEN_COMING_SOON_AS_LIVE) {
+    if (rule.re.test(content)) comingSoon = true;
+  }
+  push(5, "“Yakında” özellik canlı gibi sunulmamış mı?", !comingSoon);
+  const headings = (content.match(/^##\s+/gm) || []).length;
+  push(6, "En az 3 ## alt başlık var mı?", headings >= 3, headings >= 2, `${headings} başlık`);
+  push(7, "Kelime sayısı 800–2200 mü?", wordCount >= MIN_WORDS && wordCount <= MAX_WORDS, false, `${wordCount} kelime`);
+  const kwHits = keywords.filter((k) =>
+    haystack.toLocaleLowerCase("tr-TR").includes(String(k).toLocaleLowerCase("tr-TR"))
+  ).length;
+  push(8, "SEO anahtar kelimeleri metinde geçiyor mu?",
+    keywords.length === 0 ? false : kwHits / keywords.length >= 0.5,
+    keywords.length > 0 && kwHits / keywords.length >= 0.3,
+    `${kwHits}/${keywords.length}`);
+  push(9, "KVKK / yerel / güvenlik vurgusu var mı?", /kvkk|yerel|güvenli|güvenlik/i.test(content));
+  push(10, "Sonuç + yasal uyarı bölümleri var mı?",
+    /##\s*Sonuç/i.test(content) && /##\s*Yasal/i.test(content));
+
+  const pass = items.filter((i) => i.status === "pass").length;
+  const fail = items.filter((i) => i.status === "fail").length;
+  const warn = items.filter((i) => i.status === "warn").length;
+
+  return { items, summary: { pass, fail, warn, total: items.length } };
+}
+
+/**
+ * checkBlog + Matriks checklist → data/reviews/YYYY-MM-DD-review.md
+ * @param {string} reviewsDir
+ * @param {{ post: object, quality: object, checklist: object, blogMdPath?: string }} input
+ */
+export async function writeReviewMarkdown(reviewsDir, input) {
+  await mkdir(reviewsDir, { recursive: true });
+  const day = new Date().toISOString().slice(0, 10);
+  const filePath = path.join(reviewsDir, `${day}-review.md`);
+  const { post, quality, checklist, blogMdPath } = input;
+
+  const lines = [
+    `# Blog Kontrol Raporu — ${day}`,
+    ``,
+    `**postId:** ${post.id}`,
+    `**başlık:** ${post.title}`,
+    `**blog dosyası:** ${blogMdPath ?? "(yok)"}`,
+    `**oluşturma:** ${new Date().toISOString()}`,
+    ``,
+    `## Otomatik skor (checkBlog)`,
+    ``,
+    `- Skor: **${quality.score}/${quality.maxScore}** (%${quality.percent})`,
+    `- Verdict: **${quality.verdict}**`,
+    `- Kelime: ${quality.wordCount}`,
+    ``,
+  ];
+
+  if (quality.notes?.length) {
+    lines.push(`### Skor notları`, ``);
+    for (const n of quality.notes) lines.push(`- ${n}`);
+    lines.push(``);
+  }
+
+  lines.push(`## Matriks checklist`, ``);
+  lines.push(
+    `Özet: ${checklist.summary.pass} pass / ${checklist.summary.warn} warn / ${checklist.summary.fail} fail (toplam ${checklist.summary.total})`,
+    ``
+  );
+  for (const item of checklist.items) {
+    const icon =
+      item.status === "pass" ? "✅" : item.status === "warn" ? "⚠️" : "❌";
+    lines.push(
+      `${icon} **${item.id}. ${item.text}** — \`${item.status}\`${
+        item.detail ? ` (${item.detail})` : ""
+      }`
+    );
+  }
+
+  lines.push(
+    ``,
+    `## Sonuç`,
+    ``,
+    quality.percent >= 80 && checklist.summary.fail === 0
+      ? `Yazı yayın için uygun görünüyor (skor ≥ 80 ve checklist fail yok).`
+      : `Yayın öncesi revizyon önerilir. Fail maddeleri ve skor notlarını düzeltin.`,
+    ``
+  );
+
+  await writeFile(filePath, lines.join("\n"), "utf8");
+  return { filePath, day };
+}
+
+/**
+ * @param {string} postsDir
+ * @param {string} postId
+ * @param {{ title: string, content: string }} refined
+ */
+export async function updatePostContent(postsDir, postId, refined) {
+  const loaded = await loadPost(postsDir, postId);
+  if (!loaded) return null;
+  const validation = validateBlogDraft({
+    title: refined.title,
+    content: refined.content,
+    keywords: loaded.post.keywords,
+    category: loaded.post.category,
+  });
+  const updated = {
+    ...loaded.post,
+    title: refined.title,
+    content: refined.content,
+    wordCount: validation.wordCount,
+    status: validation.status,
+    errors: validation.errors,
+    warnings: validation.warnings,
+    updatedAt: new Date().toISOString(),
+    refinedAt: new Date().toISOString(),
+  };
+  await writeFile(loaded.filePath, JSON.stringify(updated, null, 2), "utf8");
+  return { post: updated, filePath: loaded.filePath };
+}
+
+export { CATEGORIES, MIN_WORDS, MAX_WORDS, LEGAL_BLOCK };

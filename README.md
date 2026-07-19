@@ -1,88 +1,144 @@
-# Qodi Bilgi + Blog MCP Sunucusu
+# Qodi MCP + Autonomous Financial Editor (v3)
 
-Qodi / Matriks MCP ürün bilgisini topic bazlı sunar; LLM'in yazdığı blogu kaydeder ve kontrol eder.
+Matriks ürün bilgisi (Qodi / MCP / Quantex) için yerel **MCP sunucusu** + blog üretimini **otomatikleştiren** pipeline.
 
-## Araçlar
+---
 
-| Tool | Ne yapar? |
+## Nasıl bir mimari tasarladık? (kısa)
+
+İki katman var; birbirini bozmaz:
+
+```
+1) MCP (Claude Desktop)
+   sohbet → getQodiInfo / writeBlog / checkBlog / refineBlog / reviewBlog
+   giriş: src/server.js (stdio)
+
+2) Otomasyon Pipeline (Claude gerekmez)
+   cron veya HTTP → Writer → Editor → (skor < 80 ise tekrar) → MD dosyaları
+   giriş: npm run pipeline
+```
+
+| Parça | Görev |
 |---|---|
-| `getQodiInfo` | `data/qodi-bilgi-dosyasi-v2.md` içinden konu bazlı referans metni döner |
-| `writeBlog` | LLM'in ürettiği yazıyı `data/posts/` altına kaydeder + kural kapısı |
-| `checkBlog` | Kayıtlı yazıyı yapı / yasal uyarı / marka / SEO skorlar |
+| Master MD | `data/qodi-bilgi-dosyasi-v2.md` — tek doğruluk kaynağı |
+| Writer | Topic’lerden taslak yazar, kaydeder |
+| Editor | Skor + Matriks checklist → `data/reviews/*.md` |
+| Self-correction | Skor &lt; 80 ise max 3 tur otonom düzeltme |
+| Tetikleme | 3 günde bir 09:00 **veya** HTTP `curl` |
 
-**Önemli:** Metni üreten LLM'dir. MCP kaynak verir, kaydeder ve kontrol eder — sihirli “otomatik blog motoru” değildir.
+**Fikir:** MCP = standart araçlar. Otomasyon = bu araçları zamanlayıcı/HTTP ile çağıran ayrı process. Loglar stderr’de (stdio bozulmaz).
 
-### Önerilen akış
+Ayrıntı: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
-1. `getQodiInfo` → ilgili topic'ler (`genel_tanim`, `farklar`, `yasal_uyari`, …)
-2. LLM blog metnini yazar (Qodi bilgisine sadık kalarak)
-3. `writeBlog` → kaydet (`postId` döner)
-4. `checkBlog` → skor / `ready` | `needs_revision` | `reject`
-
-### matrisai-blog-mcp ile birlikte kullanım
-
-Cursor'da her iki MCP de açıksa:
-
-| Amaç | qodi-mcp | matrisai-blog-mcp |
-|---|---|---|
-| Doğru ürün bilgisi | `getQodiInfo` | — |
-| Yazım brifi | — | `get_writing_brief` |
-| Kaydet | `writeBlog` | `write_blog_post` |
-| Kontrol | `checkBlog` | `check_blog_post` |
-
-Tipik karma akış: brif için `get_writing_brief` → kaynak için `getQodiInfo` → yaz → `writeBlog` + isteğe bağlı `check_blog_post`.
+---
 
 ## Kurulum
 
 ```bash
-git clone <bu-repo-url> qodi-mcp
-cd qodi-mcp
+cd /Users/nursenakay/Desktop/qodi-mcp
 npm install
+```
+
+---
+
+## Claude Desktop (MCP sohbet)
+
+Config örneği: `claude_desktop_config.example.json`  
+`args` yolunu kendi makinedeki `.../qodi-mcp/src/server.js` yap.
+
+```bash
 npm start
 ```
 
-## Claude Desktop / Cursor'a ekleme
+Claude’da tool’lar görünür; bu **otomasyon değil**, sohbet kullanımıdır.
 
-Örnek: `claude_desktop_config.example.json`.
+---
 
-**Önemli:** `args` yolunu kendi klonladığınız dizine göre güncelleyin.
+## Klasörler
 
-```json
-{
-  "mcpServers": {
-    "qodi-bilgi-yerel": {
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/qodi-mcp/src/server.js"]
-    }
-  }
-}
+```
+src/server.js           # MCP stdio
+src/blog.js             # write / check / refine / review
+src/autonomous/         # Writer, Editor, orchestrator
+src/api/run-pipeline.mjs
+skills/                 # format + checklist
+config/blog-automation.json
+data/posts/             # blog MD
+data/reviews/           # kontrol MD
 ```
 
-Config sonrası Cursor / Claude'u yeniden başlatın.
+---
 
-## writeBlog kuralları (özet)
+## Terminalde nasıl çağırırım? (kopyala-yapıştır)
 
-- Kelime: ~800–2200
-- Yasal uyarı zorunlu: “yatırım tavsiyesi değildir” / “bilgilendirme amaçlıdır”
-- 3–10 SEO anahtar kelimesi
-- Kategori: `AI` | `Teknoloji` | `Finansal` | `Güvenlik`
-- “Yakında” özellikler (Belge Analizi, Portföy Optimizasyonu) mevcutmuş gibi yazılmamalı
+### A) Otomasyonu aç (Terminal 1 — açık kalsın)
 
-## Bilgi dosyasını güncelleme
+```bash
+cd /Users/nursenakay/Desktop/qodi-mcp
+npm run pipeline
+```
 
-1. `data/qodi-bilgi-dosyasi-v2.md` düzenle
-2. MCP'yi yeniden başlat
-3. Enum ve içerikler dosyadan türetilir (canlı reload yok)
+`HAZIR — http://127.0.0.1:8787` (veya 8788) görününce hazır.
 
-## İçerik Güncelleme Rehberi (yeni topic)
+### B) Hemen bir blog üret (Terminal 2)
 
-1. Bölüm 0 tablosuna satır: `| \`yeni_topic\` | 15 | Kapsam |`
-2. Başlığın altına: `<!-- topic: yeni_topic -->`
-3. Sunucuyu yeniden başlat
+Port **8787** ise:
 
-`tam_metin` özeldir; ayrı yorum satırı aranmaz.
+```bash
+cd /Users/nursenakay/Desktop/qodi-mcp
+curl -s -X POST http://127.0.0.1:8787/api/v1/trigger-pipeline \
+  -H 'Content-Type: application/json' \
+  -d '{"force":true}'
+```
 
-## Gereksinimler
+Port **8788** yazdıysa `8787` yerine `8788` yaz.
 
-- Node.js 18+
-- `@modelcontextprotocol/sdk`, `zod`
+### C) Tek seferlik (HTTP açmadan)
+
+```bash
+cd /Users/nursenakay/Desktop/qodi-mcp
+npm run pipeline:once
+```
+
+### D) Çıktıları aç (klasör)
+
+```bash
+open data/posts/
+open data/reviews/
+```
+
+### E) Örnek: hem blog hem kontrol dosyasını aç (mentör demosu)
+
+En güncel örnek (19 Temmuz 2026 koşusu) — ikisini birden:
+
+```bash
+cd /Users/nursenakay/Desktop/qodi-mcp
+open data/posts/2026-07-19-qodi-blog.md
+open data/reviews/2026-07-19-review.md
+```
+
+| Dosya | Ne |
+|---|---|
+| `data/posts/2026-07-19-qodi-blog.md` | Üretilen blog yazısı |
+| `data/reviews/2026-07-19-review.md` | Editor kontrol raporu (skor / checklist) |
+
+Yeni bir `curl` tetikledikten sonra tarih değişir; o günün `YYYY-MM-DD` değerini kullan.
+
+### F) Sağlık kontrolü
+
+```bash
+curl -s http://127.0.0.1:8787/api/v1/health
+```
+
+---
+
+## Config
+
+`config/blog-automation.json` — `everyDays`, `cron`, `scoreThreshold` (80), `maxRevisions` (3), `httpPort`.
+
+| Env | Anlam |
+|---|---|
+| `BLOG_EVERY_DAYS` | Kaç günde bir |
+| `BLOG_HOUR` / `BLOG_CRON` | Saat / cron |
+| `PIPELINE_HTTP_PORT` | Port |
+| `PIPELINE_MCP_STDIO=1` | Gerçek MCP Client (opsiyonel) |

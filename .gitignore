@@ -7,4 +7,7 @@ npm-debug.log*
 .idea/
 .vscode/
 data/posts/*.json
+data/posts/*.md
+data/posts/errors/*.json
 !data/posts/.gitkeep
+!data/posts/errors/.gitkeep

@@ -1,8 +1,8 @@
-# Qodi ve Matriks MCP — Matriks'in Finansal Yapay Zeka Ekosistemi
+# Qodi, Matriks MCP ve Quantex — Matriks'in Finansal Yapay Zeka Ekosistemi
 
-> **Bu doküman ne işe yarar?** Bu dosya, Qodi ve Matriks MCP hakkında soru alan herhangi bir yapay zeka modelinin (Qodi'nin kendisi, Claude, ChatGPT, Cursor veya Antigravity üzerinden Matriks MCP'ye bağlanan herhangi bir LLM) doğru, tutarlı ve zengin bir şekilde cevap verebilmesi için hazırlanmış bir referans kaynağıdır. Qodi ve/veya Matriks MCP hakkında bir blog yazısı, tanıtım metni, SSS cevabı, kurulum rehberi veya karşılaştırma yazısı üretilecekse, bilgi bu dosyadan alınmalıdır.
+> **Bu doküman ne işe yarar?** Bu dosya, Qodi, Matriks MCP ve Quantex hakkında soru alan herhangi bir yapay zeka modelinin (Qodi'nin kendisi, Claude, ChatGPT, Cursor veya Antigravity üzerinden Matriks MCP'ye bağlanan herhangi bir LLM) doğru, tutarlı ve zengin bir şekilde cevap verebilmesi için hazırlanmış bir referans kaynağıdır. Blog yazısı, tanıtım metni, SSS, kurulum rehberi veya karşılaştırma üretilecekse bilgi bu dosyadan alınmalıdır.
 >
-> **Son güncelleme:** 9 Temmuz 2026. **Doğrulanmış kaynaklar:** matriks.ai/tr/products/qodi, matriks.ai/tr/products/mcp, "Matriks MCP Entegrasyon Dökümanı" (PDF, resmî), matriks.ai/tr/corporate/security, qodi.matriks.ai (ürün arayüzü — ekran görüntüsünden gözlemlenmiştir). Rakam ve teknik iddialar bu kaynaklardan derlenmiştir; kaynaklarda yer almayan hiçbir rakam bu dosyaya eklenmemiştir.
+> **Son güncelleme:** 18 Temmuz 2026. **Doğrulanmış kaynaklar:** matriks.ai/tr/products/qodi, matriks.ai/tr/products/mcp, "Matriks MCP Entegrasyon Dökümanı" (PDF), matriks.ai/tr/corporate/security, qodi.matriks.ai, **"QUANTEX Kurumsal Ürün ve Çözüm Dokümanı v1"** (PDF + DOCX, Matriks Finansal Teknolojiler A.Ş.). Rakam ve teknik iddialar bu kaynaklardan derlenmiştir; kaynaklarda yer almayan hiçbir rakam bu dosyaya eklenmemiştir.
 
 ---
 
@@ -18,7 +18,7 @@ Bu tablo, bu dosyayı sunan bir MCP aracının (`getQodiInfo` veya benzeri) `top
 | `analitik_mcp` | 3.1 | Analitik MCP modu |
 | `trader_mcp` | 3.2 | Trading MCP / Trader MCP modu |
 | `teknik_altyapi` | 3.3 | Model özellikleri, performans metrikleri, arayüz rakamları |
-| `yakinda_gelecek` | 3.4 | Henüz canlı olmayan özellikler (Belge Analizi, Portföy Optimizasyonu) |
+| `yakinda_gelecek` | 3.4 | Henüz canlı olmayan özellikler (Portföy Optimizasyonu) |
 | `farklar` | 4 | Rakiplerden ayıran özellikler (a–i maddeleri) |
 | `kullanim_senaryolari` | 5 | Örnek sorgu/kullanım listesi |
 | `entegrasyon_genel` | 6 (giriş) | Desteklenen platformlar, genel not |
@@ -35,6 +35,17 @@ Bu tablo, bu dosyayı sunan bir MCP aracının (`getQodiInfo` veya benzeri) `top
 | `arac_listesi` | 12 | 22 araçlık doğrulanmış liste |
 | `mcp_sunum_mantigi` | 13 | Bu dosyanın MCP üzerinden nasıl sunulacağı (teknik akış) |
 | `kaynak_notu` | 14 | Kaynak listesi |
+| `quantex_genel` | 15 | Quantex nedir, yönetici özeti, öne çıkanlar |
+| `quantex_moduller` | 16 | Sekiz modülün genel tablosu |
+| `quantex_indicator` | 16.1 | Indicator Engine |
+| `quantex_anomaly` | 16.2 | Anomaly Engine |
+| `quantex_signals` | 16.3 | Signals Service |
+| `quantex_ai_insights` | 16.4 | AI Insights Engine |
+| `quantex_forecast` | 16.5 | Forecast Engine |
+| `quantex_dps` | 16.6 | Document Processing Service (DPS) |
+| `quantex_news_visual` | 16.7 | News Visual Engine (ANVE) |
+| `quantex_qcharts` | 16.8 | Q-Charts Engine |
+| `quantex_neden` | 17 | Neden Quantex? farklılaşma maddeleri |
 | `tam_metin` | — | Dosyanın tamamı (hiçbir chunk'lama yapılmadan) |
 
 ---
@@ -46,7 +57,7 @@ Bu tablo, bu dosyayı sunan bir MCP aracının (`getQodiInfo` veya benzeri) `top
 
 Resmî konumlandırma cümlesi (matriks.ai/tr/products/qodi): **"Türkiye'nin İlk Yerel Finansal Yapay Zeka Asistanı."** Qodi, verileri **%100 yerel işleme** ilkesiyle çalışır — veri işleme Türkiye sınırları içinde gerçekleşir ve üçüncü taraf bulut AI servislerine veri gönderilmez.
 
-Qodi, Matriks'in 2026 yılında tanıttığı yeni nesil yapay zeka ekosisteminin (Matriks AI) finansal asistan bileşenidir. Bu ekosistemde Qodi'nin yanında; doküman analizine odaklanan **Qortex**, veri analitiğine odaklanan **Quantex** ve farklı AI araçlarını finansal veriye bağlayan altyapı katmanı olan **Matriks MCP** yer alır (Qortex ve Quantex şu an "Yakında" statüsündedir). Qodi, bu ekosistemin **kullanıcıyla doğrudan konuşan yüzüdür**; Matriks MCP ise bu deneyimi başka AI araçlarına da taşıyan altyapıdır.
+Qodi, Matriks'in 2026 yılında tanıttığı yeni nesil yapay zeka ekosisteminin (Matriks AI) finansal asistan bileşenidir. Bu ekosistemde Qodi'nin yanında; doküman analizine odaklanan **Qortex**, kantitatif analiz ve gerçek zamanlı sinyal platformu **Quantex** ve farklı AI araçlarını finansal veriye bağlayan altyapı katmanı olan **Matriks MCP** yer alır (Qortex ürün arayüzünde "Yakında" olarak da görünebilir). Qodi, bu ekosistemin **kullanıcıyla doğrudan konuşan yüzüdür**; Matriks MCP ise bu deneyimi başka AI araçlarına da taşıyan altyapıdır. Quantex detayları için bkz. Bölüm 15–17.
 
 **Tek cümlelik tanım:** *"Piyasayı Qodi ile farklı bir gözle izleyin" — karmaşık arayüzlerde gezinmeye gerek kalmadan, sohbet ederek tüm finansal verilere ulaşmayı sağlayan yapay zeka destekli finansal asistan.*
 
@@ -145,10 +156,9 @@ Bu rakamlar içerik üretiminde (blog, teknik SSS) doğrudan kullanılabilir; an
 <!-- topic: yakinda_gelecek -->
 
 Resmî ürün sayfasında "Yakında" etiketiyle belirtilen, henüz canlı olmayan özellikler:
-- **Belge Analizi:** Finansal belgelerin (PDF, Excel, Word) AI ile analiz edilmesi, otomatik veri çıkarımı, akıllı özetleme ve belge bazlı risk değerlendirmesi.
 - **Portföy Optimizasyonu:** Modern Portföy Teorisi'ne dayalı yapay zeka destekli portföy önerileri, risk-getiri optimizasyonu, çeşitlendirme önerileri ve rebalancing stratejileri.
 
-> **Önemli:** İçerik üretirken bu iki özellik **"mevcut" veya "kullanılabilir"** olarak değil, **"yakında gelecek"** olarak ifade edilmelidir. Şu anda canlı olmayan bir özelliği mevcutmuş gibi sunmak yanıltıcı olur.
+> **Önemli:** İçerik üretirken bu özellik **"mevcut" veya "kullanılabilir"** olarak değil, **"yakında gelecek"** olarak ifade edilmelidir. Şu anda canlı olmayan bir özelliği mevcutmuş gibi sunmak yanıltıcı olur.
 
 ---
 
@@ -336,7 +346,7 @@ Bu API Key ve Client ID/kullanıcı adı, aşağıdaki dört platform entegrasyo
 |---|---|
 | **Qodi** | Doğal dille finansal analiz yapan, yatırımcıya rehberlik eden asistan (Analitik MCP + Trader MCP modlarıyla) |
 | **Matriks MCP** | Farklı AI araçlarını (Claude, ChatGPT, Cursor, Antigravity) Matriks'in finansal veri altyapısına bağlayan entegrasyon katmanı — 30+ araç, 100+ servis |
-| **Quantex** *(Yakında)* | Veri setlerini işleyerek derinlemesine analiz sunan, AI destekli veri analitiği platformu |
+| **Quantex** | Kantitatif finansal analiz ve gerçek zamanlı sinyal platformu — Indicator, Anomaly, Signals, AI Insights, Forecast, DPS, News Visual, Q-Charts (sekiz modül) |
 | **Qortex** *(Yakında)* | Finansal dokümantasyon süreçlerini "AI Ready" hale getiren doküman analiz altyapısı |
 
 Qodi bu ekosistemde **kullanıcı ile doğrudan sohbet eden katmandır**; Matriks MCP ise Qodi'nin (ve tercihen başka AI araçlarının) bu zengin veriye erişmesini sağlayan "boru hattı"dır. Qodi'nin arayüzü aslında Matriks MCP'nin "hazır, kendi barındırdığı" bir istemcisi gibi düşünülebilir — aynı veri, iki farklı kapıdan (Qodi'nin kendi arayüzü ya da tercih edilen üçüncü taraf AI aracı) sunulur.
@@ -374,7 +384,7 @@ Bu dosyayı kullanarak içerik üretirken:
 - Rakip ürün isimleri **anılmamalı**; farklılıklar Qodi'nin/Matriks MCP'nin kendi güçlü yönleri üzerinden anlatılmalıdır.
 - "Yatırım tavsiyesi değildir" notu, finansal sonuç önerir nitelikteki her içerikte korunmalıdır.
 - Teknik doğruluk için Bölüm 3, 4, 6 ve 12'deki özellik/araç/rakam/kurulum bilgileri esas alınmalı; abartılı veya doğrulanmamış iddialar üretilmemelidir.
-- Bölüm 3.4'teki "Yakında" özellikler (Belge Analizi, Portföy Optimizasyonu) **mevcut** özellikmiş gibi sunulmamalıdır.
+- Bölüm 3.4'teki "Yakında" özellik (Portföy Optimizasyonu) **mevcut** özellikmiş gibi sunulmamalıdır.
 - Kurulum adımları anlatılırken API Key ve Client Secret gibi değerlerin **gerçek/örnek olmayan bir değerle asla verilmemesi**, sadece yer tutucu (`KULLANICI_ADINIZ`, `API_KEYINIZ`) olarak gösterilmesi gerekir.
 - Ton, hem teknik doğruluğu koruyan hem de okunabilir/pazarlanabilir bir dil olmalıdır — kuru bir özellik listesi yerine, kullanıcı faydasına odaklanan bir anlatım tercih edilmelidir.
 
@@ -438,6 +448,181 @@ Bu dosyadaki bilgiler aşağıdaki kaynaklardan derlenmiş ve mümkün olduğunc
 - "Matriks MCP Entegrasyon Dökümanı" (resmî PDF — API Key oluşturma, Claude/Cursor/ChatGPT/Antigravity kurulum adımları)
 - https://matriks.ai/tr/corporate/security
 - https://qodi.matriks.ai/ (ürünün canlı sohbet arayüzü — ekran görüntüsünden gözlemlenmiştir: Analitik MCP / Trader MCP etiketleri, 50+/30+/7-24/Anlık rakamları, örnek hızlı işlemler)
+- "QUANTEX Kurumsal Ürün ve Çözüm Dokümanı v1" (Matriks Finansal Teknolojiler A.Ş. — kurumsal PDF / DOCX; `data/Quantex_Kurumsal_Dokuman_v1.pdf`)
 - Antigravity kurulum ekran görüntüsü (`matriks-finance` sunucusu)
 
 Yeni bir ekran görüntüsü veya doküman paylaşıldığında, bu dosya güncellenmeli ve "Son güncelleme" tarihi buna göre değiştirilmelidir.
+
+---
+
+## 15. Quantex Nedir? (Yönetici Özeti)
+<!-- topic: quantex_genel -->
+
+**Quantex**, Matriks Finansal Teknolojiler A.Ş.'nin kurumsal sınıf **kantitatif finansal analiz ve gerçek zamanlı sinyal platformudur**. Finansal kurumların gerçek zamanlı piyasa analizini, sinyal üretimini ve yapay zekâ destekli karar desteğini tek bir bütünleşik ekosistemde toplar.
+
+Platform; birbirinden bağımsız araçların toplamı değil, gerçek zamanlı veri akışıyla birbirine bağlı ve birbirini besleyen modüllerden oluşan entegre bir mimaridir. Quantex **sekiz modülden** oluşur (bkz. Bölüm 16). Modüller bağımsız lisanslanabilir; birlikte uçtan uca bir karar destek zinciri oluşturur.
+
+**Öne çıkanlar (resmî kurumsal doküman):**
+- Türkiye sermaye piyasalarına özgü, gerçek zamanlı ve doğrulanmış veriyle çalışan yerli çözüm.
+- Sunucu taraflı, saniyede **100.000'den fazla tick** işleyen yüksek performanslı **C++20** hesaplama çekirdeği.
+- Gerçek zamanlı piyasa mikro-yapı anomali tespiti ve bileşik formül tabanlı sinyal üretimi.
+- Denetlenebilir, maliyet-etkin ve **SPK mevzuatına uyumlu** yapay zekâ analiz katmanı.
+- Otonom finansal tahmin ve haber görselleme.
+- Modüler lisanslama, on-premise kurulum ve white-label entegrasyon seçenekleri.
+
+Kaynak: *QUANTEX Kurumsal Ürün ve Çözüm Dokümanı v1*.
+
+---
+
+## 16. Quantex Modülleri (Genel Bakış)
+<!-- topic: quantex_moduller -->
+
+Modüller MQTT, Redis, RabbitMQ ve REST/WebSocket üzerinden gerçek zamanlı bağlanır.
+
+| Modül | Temel işlev |
+|---|---|
+| **Indicator Engine** | Gerçek zamanlı teknik gösterge hesaplama; iç içe gösterge bileşimi ve pattern tespiti |
+| **Anomaly Engine** | Piyasa mikro-yapı anomali tespiti; 6 kategoride 22 detektör |
+| **Signals Service** | Bileşik formül tabanlı al/sat sinyali üretimi ve dağıtımı |
+| **AI Insights Engine** | 8 segmentli yapılandırılmış yapay zekâ piyasa analizi |
+| **Forecast Engine** | Otonom, self-learning finansal tahmin üretimi |
+| **Document Processing Service (DPS)** | Finansal doküman analizi, yapılandırma ve finansal etki analizi |
+| **News Visual Engine (ANVE)** | Haber NLP, sentiment ve AI görsel üretimi/eşleştirme |
+| **Q-Charts Engine** | Tek Rust çekirdeğiyle çok platformlu grafik |
+
+### 16.1. Indicator Engine
+<!-- topic: quantex_indicator -->
+
+Canlı tick verilerinden **30'dan fazla** teknik göstergeyi gerçek zamanlı hesaplayan, **C++20** ile geliştirilmiş yüksek performanslı motordur. Saniyede **100.000+ tick** kapasitesiyle çalışır; hesaplama istemci değil **sunucu tarafında** yapılır — tüm platformlarda bit düzeyinde tutarlı sonuç.
+
+- **Nested Indicator Composition:** Göstergelerin birbirinin çıktısını girdi olarak kullanması; sonsuz derinlikte zincirleme (ör. `SMA[RSI:14]:20`).
+- **OHLCV kaynak seçimi:** Her gösterge için çoklu kaynak/çıktı.
+- **TickMerger:** Fiyat değişmediğinde tick birleştirme ile CPU tasarrufu.
+- **Pattern ve sinyal:** 25'ten fazla teknik formasyon; SignalRegistry ile sinyal üretimi.
+
+### 16.2. Anomaly Engine
+<!-- topic: quantex_anomaly -->
+
+Gerçek zamanlı piyasa verilerini mikro saniye hassasiyetinde analiz ederek spoofing, iceberg emirler, bilgilendirilmiş işlemler ve para akışı anomalilerini proaktif tespit eder.
+
+- **22 detektör / 6 kategori:** Emir defteri, işlem akışı, para akışı, çapraz varlık, mikro-yapı, kompozit.
+- **Rejim farkındalıklı adaptif eşik:** Score decay ile düşük false positive.
+- **Lego detektör mimarisi:** Factory Pattern ile mevcut sistemi bozmadan yeni detektör.
+- **Öğrenen sembol profili:** EWMA tabanlı dinamik profil; ClickHouse üzerinde audit trail.
+
+### 16.3. Signals Service
+<!-- topic: quantex_signals -->
+
+Bileşik formül tabanlı al/sat sinyali üretimi ve dağıtımı. Tek gösterge koşullarının ötesinde formül zincirleme, çok zaman dilimli senkronizasyon ve backtesting yetenekleriyle konumlandırılır (bkz. Bölüm 17 — Neden Quantex?).
+
+### 16.4. AI Insights Engine
+<!-- topic: quantex_ai_insights -->
+
+Quantex ekosistemindeki tüm veri kaynaklarını (teknik göstergeler, anomali sinyalleri, temel finansal veriler, kurumsal akış ve doküman çıktıları) birleştirerek yatırımcı ve analist kararlarını destekleyen yapılandırılmış analizler üreten yapay zekâ katmanıdır. Kurumlara özel ve zamanlanmış AI destekli piyasa analizleri üretir.
+
+#### Tasarım felsefesi
+LLM yalnızca **yorumlama** yapar; hesaplama ve örüntü tespiti deterministik biçimde önceden yapılır. Böylece çıktılar tutarlı, izlenebilir ve halüsinasyon riskine karşı daha dayanıklıdır.
+
+- Yapılandırılmış analiz (serbest metin yerine segment + standart alanlar)
+- Denetlenebilirlik (kaynak, zaman damgası, model parametreleri)
+- Maliyet bilinci (önceden üretim + önbellek)
+- Mevzuat uyumu: SPK’ya uygun olarak doğrudan al/sat tavsiyesi yerine **analiz perspektifli** ifade
+
+#### Sekiz segmentli mimari
+
+| Segment | Başlık | Kapsam |
+|---|---|---|
+| S1 | Teknik Analiz | Gösterge/formasyon; momentum, trend, sinyal |
+| S2 | Temel Analiz | Şirket finansalları ve temel oranlar |
+| S3 | Piyasa Genel | Endeks ve piyasa özeti |
+| S4 | Seans Bülteni | Gün içi / seans gelişmeleri |
+| S5 | Birleşik Rapor | Teknik + temel + kurumsal akış konsolidasyonu |
+| S6 | Kurumsal Akış | Kurumsal/yabancı akış ve takas (lisans-farkındalıklı) |
+| S7 | Sektör Analizi | Sektör performans, korelasyon, görece konum |
+| S8 | Risk Değerlendirme | Anomali sinyalleri + risk göstergeleri |
+
+#### Pre-generation ve performans
+Yüksek talep gören semboller için analizler kullanıcı talebinden önce üretilir ve **Redis** önbelleğine alınır. Aylık milyonlarca kullanıcı / günlük milyonlarca istek ölçeğinde API yanıtı milisaniye düzeyinde hedeflenir. Yüzlerce sembollük güncellenen havuz; piyasa saatlerine uyumlu üretim döngüleri.
+
+#### Maliyet optimizasyonu
+Her analizin girdi konfigürasyonundan hash üretilir; veri değişmediyse önceki sonuç yeniden kullanılır. Çoklu API anahtarı havuzu ile yük dengeleme; düşük öncelikli segmentlerde maliyet-kalite dengeli model seçimi.
+
+#### Temporal karşılaştırma — “Ne değişti?”
+Aynı sembol/segment için **10 dakika, 1 saat, 1 gün, 1 hafta** önceki versiyonlarla otomatik karşılaştırma; kullanıcı yalnızca anlık durumu değil zaman içindeki evrimi görür.
+
+#### Deterministik ön-analiz
+AI çağrısından önce gösterge, bias ve örüntü tespiti deterministik tamamlanır; LLM yalnızca doğrulanmış girdileri yorumlar. Accuracy tracking ile analizler gerçekleşen sonuçlarla karşılaştırılarak kalite iyileştirilir (self-learning).
+
+#### Denetlenebilirlik (provenance)
+Her analiz için veri kaynakları, zaman damgaları, model parametreleri ve maliyet bilgisi kayıt altına alınır — kurumsal denetim, uyum ve iç kontrol için.
+
+#### Çok kiracılı (multi-tenant) özelleştirme
+- Kurum bazlı konfigürasyon: veri kaynağı, zamanlama, segment tercihleri
+- Terminoloji özelleştirme
+- Lisans-farkındalıklı versiyonlama (ör. AKDE/MKK lisanslı kurumsal akış yalnızca yetkili abonelere)
+
+#### Veri kaynakları / adaptörler
+Indicator Engine, Anomaly Engine, broker/temel veri servisleri, Signals Service, Document Processing Service (DPS).
+
+#### Genel amaçlı LLM’den farkı
+
+| Genel amaçlı LLM | Quantex AI Insights |
+|---|---|
+| Serbest metin, tutarsız format | 8 segmentli yapılandırılmış analiz |
+| Halüsinasyon riski yüksek | Deterministik ön-analiz ile risk düşürülmüş |
+| Kaynak izlenebilirliği zayıf | Provenance ile tam takip |
+| Yüksek / öngörülemeyen maliyet | Config hash cache ile tasarruf |
+| BIST/VİOP ve Türkçe’ye sınırlı uyum | Yerli piyasa ve Türkçe terminolojiye özel |
+| SPK odağı yok | SPK uyumlu ifade tasarıma dâhil |
+
+### 16.5. Forecast Engine
+<!-- topic: quantex_forecast -->
+
+BIST şirketleri için otonom finansal tahmin üreten; tahminleri gerçekleşen sonuçlarla karşılaştırarak metodolojisini geliştiren (self-learning) AI sistemidir. **22 sektör** için özelleştirilmiş metodolojiler sunar.
+
+- **6 aşamalı AI pipeline:** Ön analizden final tahmine.
+- **3 katmanlı öğrenme:** Genel, sektör, sembol; changelog bazlı haber revizyonu.
+- **Yerel uyum:** TMS 29 enflasyon muhasebesi; çoklu model doğrulama.
+- **Çıktılar:** Çeyreklik/yıllık gelir, FAVÖK, net kâr, fiyat hedefi, sapma analizi, revizyon geçmişi.
+
+### 16.6. Document Processing Service (DPS)
+<!-- topic: quantex_dps -->
+
+BIST şirketlerinin finansal raporlarını (bilanço, gelir tablosu, dipnotlar) AI ile analiz ederek yapılandırılmış veriye dönüştürür; manuel 2–4 saatlik işi dakikalara indirir.
+
+- **Özgün algoritmalar:** Multi-Model AI Escalation, Iterative Deepening, Truncated JSON Recovery.
+- **ContinuityTracker:** Bloklar arası bölünmüş dipnot birleştirme; sektör bazlı kategori.
+- **Çıktılar:** QoQ/YoY karşılaştırma, trend, entity extraction.
+- **Entegrasyon:** Çıktılar AI Insights Engine temel/kurumsal segmentlerini besler.
+
+### 16.7. News Visual Engine (ANVE)
+<!-- topic: quantex_news_visual -->
+
+Finansal haber akışında entity extraction, semantic embedding ve sentiment analizi yapar; habere özgü editöryal kalitede görsel üretir veya eşleştirir.
+
+- **3 fazlı eşleştirme:** Exact → semantic → categorical; KNN + entity boost/penalty.
+- **Dual AI görsel:** Ana/mood varyantları; visual aging.
+- **Çok kiracılı:** Kuruma özel logo, ton, overlay post-processing.
+- **Çıktılar:** Varlık zenginleştirilmiş haberler, semantik görsel eşleştirme, tenant bazlı görseller.
+
+### 16.8. Q-Charts Engine
+<!-- topic: quantex_qcharts -->
+
+Tek **Rust** çekirdeğiyle birden fazla platforma uyumlu grafik motoru. Quantex'in görselleştirme katmanıdır; Indicator ve sinyal çıktılarıyla birlikte karar destek zincirinin parçasını oluşturur.
+
+---
+
+## 17. Neden Quantex?
+<!-- topic: quantex_neden -->
+
+Quantex tekil bir araç değil; teknik, temel, kurumsal ve risk perspektiflerini tek gerçek zamanlı karar destek zincirinde birleştiren bütünleşik platformdur.
+
+- **Yüksek performans:** Sunucu taraflı C++20; 100.000+ tick/sn; istemci script platformlarının ötesinde tutarlılık.
+- **Gerçek zamanlı anomali:** Gün sonu batch yerine 22 detektörlü, rejim farkındalıklı mikro-yapı tespiti.
+- **İleri sinyal:** Bileşik formül zincirleme, çok zaman dilimli senkronizasyon, backtesting.
+- **Kurumsal sınıf AI:** Provenance, config hash cache, SPK uyumlu analiz.
+- **Yerli ve uyumlu:** BIST optimizasyonu, Türkçe terminoloji, KVKK/GDPR, on-premise.
+- **Esnek konumlandırma:** Modüler lisanslama, white-label, Matriks ürünleriyle entegrasyon.
+- **Bütünleşik kapsam:** Analizden tahmine, haber görselinden çok platformlu grafiğe — sekiz modül.
+
+> **İçerik notu:** Quantex kurumsal ürün dokümanına dayanır. Qodi sohbet asistanından farklı bir üründür; blogda Quantex anlatılırken "Qodi'nin yerine geçer" denmemeli — ekosistemde tamamlayıcı konumlandırılmalıdır. Al/sat tavsiyesi dili kullanılmamalıdır.

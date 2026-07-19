@@ -1,20 +1,11 @@
 /**
- * Qodi Bilgi + Blog MCP Sunucusu (v2.1)
+ * Qodi Bilgi + Blog MCP Sunucusu (v2.2)
  *
- * Bilgi kaynağı: data/qodi-bilgi-dosyasi-v2.md
- *   1) "## 0. Topic Eşleştirme Tablosu" → geçerli topic listesi
- *   2) <!-- topic: ... --> → bölüm içerikleri
- *
- * Araçlar:
- *   getQodiInfo — konu bazlı referans metni (kaynak)
- *   writeBlog   — LLM'in ürettiği blogu kaydet + kural kapısı
- *   checkBlog   — kayıtlı yazıyı kalite / SEO / yasal uyarı skorla
- *
- * Akış: getQodiInfo → (LLM yazar) → writeBlog → checkBlog
- * İsteğe bağlı: matrisai-blog-mcp ile birlikte de kullanılabilir.
- *
- * İletişim: stdio. Loglar yalnızca stderr'e (stdout JSON-RPC için).
+ * Araçlar: getQodiInfo, writeBlog, refineBlog, checkBlog, reviewBlog
+ * Claude Desktop uyumu: SDK 1.12.x + server.tool()
  */
+
+console.error("[qodi-mcp] boot…");
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -31,19 +22,26 @@ import {
   checkBlogQuality,
   ensurePostsDir,
   loadPost,
+  refineBlog,
+  runMatriksChecklist,
+  updatePostContent,
   writeBlog,
+  writeReviewMarkdown,
 } from "./blog.js";
+
+console.error("[qodi-mcp] import tamam");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_FILE = path.join(
+const DATA_FILE = path.join(   
   __dirname,
   "..",
   "data",
   "qodi-bilgi-dosyasi-v2.md"
 );
 const POSTS_DIR = path.join(__dirname, "..", "data", "posts");
+const REVIEWS_DIR = path.join(__dirname, "..", "data", "reviews");
 
 const TOPIC_COMMENT_RE = /<!--\s*topic:\s*([a-z0-9_]+)\s*-->/i;
 const HEADING_RE = /^#{2,3}\s+/;
@@ -204,14 +202,8 @@ async function loadKnowledge() {
   }
 
   console.error(
-    `[qodi-mcp] Yüklendi: ${topics.length} topic (tablodan), ${byTopic.size} içerik hazır (${DATA_FILE})`
+    `[qodi-mcp] Yüklendi: ${topics.length} topic, ${byTopic.size} içerik (${DATA_FILE})`
   );
-  for (const entry of catalog) {
-    const ok = byTopic.has(entry.topic) ? "✓" : "✗";
-    console.error(
-      `  ${ok} ${entry.topic}  [Bölüm ${entry.section}] ${entry.scope}`
-    );
-  }
 
   return { topics, catalog, byTopic };
 }
@@ -225,12 +217,7 @@ function errorResult(message) {
 
 function jsonResult(payload) {
   return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(payload, null, 2),
-      },
-    ],
+    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
   };
 }
 
@@ -260,20 +247,17 @@ async function main() {
 
   const server = new McpServer({
     name: "qodi-bilgi-yerel",
-    version: "2.1.0",
+    version: "2.2.0",
   });
 
-  // ─── 1) Bilgi ─────────────────────────────────────────────
-  server.registerTool(
+  // SDK 1.12.x uyumlu API: server.tool(name, description, schema, handler)
+  server.tool(
     "getQodiInfo",
+    buildInfoToolDescription(catalog),
     {
-      title: "Qodi Bilgi",
-      description: buildInfoToolDescription(catalog),
-      inputSchema: {
-        topic: topicEnum.describe(
-          "İstenen bilgi konusu. Değerler Bölüm 0 tablosundan türetilir."
-        ),
-      },
+      topic: topicEnum.describe(
+        "İstenen bilgi konusu. Değerler Bölüm 0 tablosundan türetilir."
+      ),
     },
     async ({ topic }) => {
       if (!topics.includes(topic)) {
@@ -285,53 +269,39 @@ async function main() {
       const content = byTopic.get(topic);
       if (!content) {
         return errorResult(
-          `Topic "${topic}" tabloda tanımlı ancak içerik yüklenemedi ` +
-            `(<!-- topic: ${topic} --> eksik veya boş olabilir). ` +
+          `Topic "${topic}" tabloda tanımlı ancak içerik yüklenemedi. ` +
             `Geçerli ve içerikli topic'ler: ${[...byTopic.keys()].join(", ")}`
         );
       }
 
-      return {
-        content: [{ type: "text", text: content }],
-      };
+      return { content: [{ type: "text", text: content }] };
     }
   );
 
-  // ─── 2) Blog kaydet ───────────────────────────────────────
-  server.registerTool(
+  server.tool(
     "writeBlog",
+    "LLM'in ürettiği MatriksAI / Qodi blog yazısını kaydeder ve kural kapısından geçirir. " +
+      `ÖNCE getQodiInfo ile kaynak çekin; metni siz yazın; sonra bu aracı çağırın. ` +
+      `Kurallar: ${MIN_WORDS}–${MAX_WORDS} kelime, yasal uyarı ("yatırım tavsiyesi değildir"), ` +
+      `3–10 SEO anahtar kelimesi, kategori (${CATEGORIES.join(" | ")}). ` +
+      "Dönen postId ile checkBlog çağırın.",
     {
-      title: "Blog Yazısını Kaydet",
-      description:
-        "LLM'in ürettiği MatriksAI / Qodi blog yazısını kaydeder ve kural kapısından geçirir. " +
-        `ÖNCE getQodiInfo ile kaynak çekin; metni siz yazın; sonra bu aracı çağırın. ` +
-        `Kurallar: ${MIN_WORDS}–${MAX_WORDS} kelime, yasal uyarı ("yatırım tavsiyesi değildir"), ` +
-        `3–10 SEO anahtar kelimesi, kategori (${CATEGORIES.join(" | ")}). ` +
-        "Dönen postId ile checkBlog çağırın. " +
-        "İsteğe bağlı: matrisai-blog-mcp (get_writing_brief / write_blog_post / check_blog_post) ile birlikte kullanılabilir.",
-      inputSchema: {
-        title: z
-          .string()
-          .min(1)
-          .describe("Blog başlığı (öneri 30–90 karakter)"),
-        content: z
-          .string()
-          .min(1)
-          .describe(
-            `Tam markdown içerik (${MIN_WORDS}–${MAX_WORDS} kelime; yasal uyarı zorunlu)`
-          ),
-        keywords: z
-          .array(z.string())
-          .min(1)
-          .describe("SEO anahtar kelimeleri (3–10)"),
-        category: categoryEnum.describe("İçerik kategorisi"),
-        sourceTopics: z
-          .array(topicEnum)
-          .optional()
-          .describe(
-            "Yazıda kullanılan getQodiInfo topic'leri (izlenebilirlik için)"
-          ),
-      },
+      title: z.string().min(1).describe("Blog başlığı (öneri 30–90 karakter)"),
+      content: z
+        .string()
+        .min(1)
+        .describe(
+          `Tam markdown içerik (${MIN_WORDS}–${MAX_WORDS} kelime; yasal uyarı zorunlu)`
+        ),
+      keywords: z
+        .array(z.string())
+        .min(1)
+        .describe("SEO anahtar kelimeleri (3–10)"),
+      category: categoryEnum.describe("İçerik kategorisi"),
+      sourceTopics: z
+        .array(topicEnum)
+        .optional()
+        .describe("Yazıda kullanılan getQodiInfo topic'leri"),
     },
     async ({ title, content, keywords, category, sourceTopics }) => {
       try {
@@ -343,7 +313,7 @@ async function main() {
           sourceTopics,
         });
 
-        const summary = {
+        return jsonResult({
           ok: record.status !== "rejected",
           postId: record.id,
           status: record.status,
@@ -355,30 +325,78 @@ async function main() {
             record.status === "rejected"
               ? "Hataları düzeltip writeBlog'u yeniden çağırın."
               : "checkBlog ile kalite skorunu alın (postId kullanın).",
-        };
-
-        return jsonResult(summary);
+        });
       } catch (err) {
         return errorResult(`writeBlog başarısız: ${err.message ?? err}`);
       }
     }
   );
 
-  // ─── 3) Blog kontrol ──────────────────────────────────────
-  server.registerTool(
-    "checkBlog",
+  server.tool(
+    "refineBlog",
+    "Brand Refiner: taslak veya kayıtlı yazıyı Matriks kurumsal tonu, doğru ürün konumlandırması " +
+      "ve yasal uyarı kurallarına göre özelleştirir. postId verilirse kayıt güncellenir; " +
+      "yalnızca title+content verilirse refined metin döner (henüz kaydetmez).",
     {
-      title: "Blog Yazısını Kontrol Et",
-      description:
-        "writeBlog ile kaydedilmiş bir yazıyı yapı, yasal uyarı, marka/ton ve SEO açısından skorlar. " +
-        "postId zorunlu. verdict: ready | needs_revision | reject. " +
-        "matrisai-blog-mcp check_blog_post ile benzer amaçlıdır; ikisi birlikte kullanılabilir.",
-      inputSchema: {
-        postId: z
-          .string()
-          .min(1)
-          .describe("writeBlog'un döndürdüğü postId"),
-      },
+      postId: z
+        .string()
+        .optional()
+        .describe("Varsa bu post refine edilip kayda yazılır"),
+      title: z.string().optional().describe("postId yoksa zorunlu"),
+      content: z.string().optional().describe("postId yoksa zorunlu"),
+    },
+    async ({ postId, title, content }) => {
+      try {
+        let baseTitle = title;
+        let baseContent = content;
+
+        if (postId) {
+          const loaded = await loadPost(POSTS_DIR, postId);
+          if (!loaded) {
+            return errorResult(`postId bulunamadı: "${postId}"`);
+          }
+          baseTitle = loaded.post.title;
+          baseContent = loaded.post.content;
+        }
+
+        if (!baseTitle || !baseContent) {
+          return errorResult("refineBlog: postId veya title+content gerekli.");
+        }
+
+        const refined = refineBlog({
+          title: baseTitle,
+          content: baseContent,
+        });
+
+        let saved = null;
+        if (postId) {
+          saved = await updatePostContent(POSTS_DIR, postId, refined);
+        }
+
+        return jsonResult({
+          ok: true,
+          postId: postId ?? null,
+          title: refined.title,
+          content: refined.content,
+          changes: refined.changes,
+          skill: refined.skill,
+          updated: Boolean(saved),
+          nextStep: postId
+            ? "reviewBlog veya checkBlog çağırın."
+            : "writeBlog ile kaydedin, sonra reviewBlog.",
+        });
+      } catch (err) {
+        return errorResult(`refineBlog başarısız: ${err.message ?? err}`);
+      }
+    }
+  );
+
+  server.tool(
+    "checkBlog",
+    "writeBlog ile kaydedilmiş bir yazıyı yapı, yasal uyarı, marka/ton ve SEO açısından skorlar. " +
+      "postId zorunlu. verdict: ready | needs_revision | reject.",
+    {
+      postId: z.string().min(1).describe("writeBlog'un döndürdüğü postId"),
     },
     async ({ postId }) => {
       try {
@@ -402,10 +420,52 @@ async function main() {
     }
   );
 
+  server.tool(
+    "reviewBlog",
+    "checkBlog skoru + Matriks checklist ile kontrol eder; sonucu ayrı bir markdown dosyasına yazar " +
+      "(data/reviews/YYYY-MM-DD-review.md). Blog dosyası yolu opsiyonel.",
+    {
+      postId: z.string().min(1).describe("writeBlog postId"),
+      blogMdPath: z
+        .string()
+        .optional()
+        .describe("İlgili blog .md yolu (raporda referans)"),
+    },
+    async ({ postId, blogMdPath }) => {
+      try {
+        const loaded = await loadPost(POSTS_DIR, postId);
+        if (!loaded) {
+          return errorResult(`postId bulunamadı: "${postId}"`);
+        }
+
+        const quality = checkBlogQuality(loaded.post);
+        const checklist = runMatriksChecklist(loaded.post);
+        const { filePath, day } = await writeReviewMarkdown(REVIEWS_DIR, {
+          post: loaded.post,
+          quality,
+          checklist,
+          blogMdPath,
+        });
+
+        return jsonResult({
+          ok: true,
+          postId: loaded.post.id,
+          reviewPath: filePath,
+          day,
+          percent: quality.percent,
+          verdict: quality.verdict,
+          checklistSummary: checklist.summary,
+        });
+      } catch (err) {
+        return errorResult(`reviewBlog başarısız: ${err.message ?? err}`);
+      }
+    }
+  );
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error(
-    "[qodi-mcp] stdio dinleniyor — getQodiInfo, writeBlog, checkBlog hazır."
+    "[qodi-mcp] stdio dinleniyor — getQodiInfo, writeBlog, refineBlog, checkBlog, reviewBlog hazır."
   );
 }
 

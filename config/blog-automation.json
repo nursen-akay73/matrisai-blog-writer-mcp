@@ -1,0 +1,24 @@
+{
+  "everyDays": 3,
+  "hour": 9,
+  "minute": 0,
+  "cron": "0 9 * * *",
+  "scoreThreshold": 80,
+  "maxRevisions": 3,
+  "httpPort": 8787,
+  "category": "Finansal",
+  "keywords": [
+    "Qodi",
+    "Matriks",
+    "KVKK",
+    "finansal asistan",
+    "yerel AI"
+  ],
+  "sourceTopics": [
+    "genel_tanim",
+    "farklar",
+    "entegrasyon_genel",
+    "guvenlik"
+  ],
+  "notes": "cron her gün hour'da tetiklenir; everyDays ile son koşudan bu yana yeterli gün geçtiyse pipeline çalışır. BLOG_CRON / BLOG_EVERY_DAYS / BLOG_HOUR env ile override edilir."
+}

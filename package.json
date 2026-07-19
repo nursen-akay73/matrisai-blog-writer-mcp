@@ -1,11 +1,17 @@
 {
   "name": "qodi-mcp",
-  "version": "2.1.0",
-  "description": "Qodi bilgi + blog kaydet/kontrol MCP sunucusu (getQodiInfo, writeBlog, checkBlog)",
+  "version": "3.0.0",
+  "description": "Qodi MCP + Autonomous Financial Editor Pipeline (Writer/Editor, self-correction, HTTP/cron)",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "pipeline:build": "npx esbuild src/api/http-server.ts --bundle --platform=node --format=esm --packages=external --external:node-cron --outfile=dist/http-server.js",
+    "pipeline": "node --import tsx src/api/run-pipeline.mjs",
+    "pipeline:once": "node --import tsx src/api/run-pipeline.mjs --once",
+    "orchestrator:build": "npx esbuild src/orchestrator.ts --bundle --platform=node --format=esm --packages=external --outfile=src/orchestrator.js",
+    "orchestrator": "node src/orchestrator.js",
+    "orchestrator:once": "node src/orchestrator.js --once"
   },
   "engines": {
     "node": ">=18"
@@ -14,11 +20,22 @@
     "mcp",
     "qodi",
     "matriks",
-    "model-context-protocol"
+    "model-context-protocol",
+    "autonomous-editor"
   ],
   "license": "UNLICENSED",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
-    "zod": "^3.24.0"
+    "@modelcontextprotocol/sdk": "1.12.1",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.13.10",
+    "@types/node-cron": "^3.0.11",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
   }
 }
