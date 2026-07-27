@@ -2,7 +2,10 @@ import type { Product } from '../types'
 
 export const MATRIKS_SITE = 'https://www.matriks.ai/tr'
 export const MCP_PORTAL = 'https://mcp.matriks.ai'
-export const QODI_APP = 'https://qodi.matriks.ai'
+/** Doğrudan qodi.matriks.ai SSL hatası veriyor; ürün sayfası + MCP giriş güvenli */
+export const QODI_PRODUCT = 'https://www.matriks.ai/tr/products/qodi'
+export const QODI_VIA_MCP =
+  'https://mcp.matriks.ai/login?returnUrl=https%3A%2F%2Fqodi.matriks.ai%2F&oauth=true'
 
 /** Onaylı içerik için ürün bazlı yayın / CTA köprüleri */
 export function getPublishLinks(product: Product) {
@@ -24,9 +27,15 @@ export function getPublishLinks(product: Product) {
   if (product === 'Qodi' || product === 'Matriks MCP') {
     links.push({
       id: 'qodi',
-      label: 'Qodi asistan',
-      href: QODI_APP,
-      blurb: 'Doğal dilde finansal analiz deneyimi',
+      label: 'Qodi ürün sayfası',
+      href: QODI_PRODUCT,
+      blurb: 'Qodi’yi Matriks AI üzerinden keşfet',
+    })
+    links.push({
+      id: 'qodi-mcp',
+      label: 'Qodi’ye MCP ile gir',
+      href: QODI_VIA_MCP,
+      blurb: 'MCP girişi üzerinden Qodi deneyimi',
     })
   }
 
