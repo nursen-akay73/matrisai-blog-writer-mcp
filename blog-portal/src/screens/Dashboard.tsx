@@ -13,6 +13,7 @@ import {
   markdownToSimpleHtml,
   slugifyFilename,
 } from '../lib/download'
+import { buildCtaMarkdown, getPublishLinks } from '../lib/publishLinks'
 
 interface Props {
   drafts: BlogDraft[]
@@ -64,6 +65,7 @@ export function Dashboard({
   const selected =
     drafts.find((d) => d.id === selectedId) ?? drafts[0] ?? null
   const [copied, setCopied] = useState(false)
+  const [ctaCopied, setCtaCopied] = useState(false)
   const [filter, setFilter] = useState<FilterTab>('all')
   const [picked, setPicked] = useState<number[]>([])
   const [freeNote, setFreeNote] = useState('')
@@ -80,7 +82,19 @@ export function Dashboard({
     setPicked([])
     setFreeNote('')
     setFilter('all')
+    setCtaCopied(false)
   }, [selected?.id])
+
+  const publishLinks = useMemo(
+    () => (selected ? getPublishLinks(selected.product) : []),
+    [selected],
+  )
+
+  const contentWithCta = useMemo(() => {
+    if (!selected) return ''
+    if ((selected.status ?? 'draft') !== 'approved') return selected.contentMarkdown
+    return selected.contentMarkdown + buildCtaMarkdown(selected.product, selected.title)
+  }, [selected])
 
   const visibleItems = useMemo(() => {
     if (filter === 'issues')
@@ -117,34 +131,44 @@ export function Dashboard({
   const passPct = Math.round((summary.pass / total) * 100)
 
   function handleDownload(format: 'md' | 'txt' | 'html' | 'pdf') {
+    const body = contentWithCta
     if (format === 'pdf') {
-      downloadPdf(selected.title, selected.contentMarkdown)
+      downloadPdf(selected.title, body)
       return
     }
     if (format === 'md') {
-      downloadText(
-        `${base}.md`,
-        selected.contentMarkdown,
-        'text/markdown;charset=utf-8',
-      )
+      downloadText(`${base}.md`, body, 'text/markdown;charset=utf-8')
       return
     }
     if (format === 'txt') {
-      downloadText(`${base}.txt`, selected.contentMarkdown)
+      downloadText(`${base}.txt`, body)
       return
     }
     downloadText(
       `${base}.html`,
-      markdownToSimpleHtml(selected.title, selected.contentMarkdown),
+      markdownToSimpleHtml(selected.title, body),
       'text/html;charset=utf-8',
     )
   }
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(selected.contentMarkdown)
+      await navigator.clipboard.writeText(contentWithCta)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function handleCopyCtaBlock() {
+    if (!selected) return
+    try {
+      await navigator.clipboard.writeText(
+        buildCtaMarkdown(selected.product, selected.title).trim(),
+      )
+      setCtaCopied(true)
+      window.setTimeout(() => setCtaCopied(false), 1800)
     } catch {
       /* ignore */
     }
@@ -334,6 +358,55 @@ export function Dashboard({
           ) : null}
         </div>
 
+        {(selected.status ?? 'draft') === 'approved' ? (
+          <section className="rounded-[24px] border border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-white to-[#EEF6FF] p-5 shadow-[0_12px_40px_rgba(40,70,140,0.08)] sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                  Yayına hazır
+                </p>
+                <h3 className="mt-1 text-lg font-bold text-slate-800">
+                  Onaylandı — Matriks & MCP köprüleri
+                </h3>
+                <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                  İçerik insan onayı aldı. Aşağıdaki linklerle okuyucuyu Matriks
+                  AI sitesine ve MCP Portal’a yönlendirebilirsiniz. İndirme /
+                  kopyalama onaylı yazıya CTA bloğunu otomatik ekler.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleCopyCtaBlock()}
+                className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm hover:bg-emerald-50"
+              >
+                {ctaCopied ? 'CTA kopyalandı' : 'CTA metnini kopyala'}
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {publishLinks.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm transition hover:border-[#3B82F6]/40 hover:shadow-md"
+                >
+                  <p className="text-sm font-bold text-slate-800 group-hover:text-[#2563EB]">
+                    {link.label}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                    {link.blurb}
+                  </p>
+                  <p className="mt-3 text-[11px] font-semibold text-[#3B82F6]">
+                    Aç →
+                  </p>
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <div className="grid gap-5 xl:grid-cols-2">
           <section className="rounded-[24px] border border-white/80 bg-white/90 p-5 shadow-[0_12px_40px_rgba(40,70,140,0.08)] backdrop-blur sm:p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -379,7 +452,7 @@ export function Dashboard({
               </div>
             </div>
             <div className="prose-blog max-h-[60vh] overflow-y-auto pr-1">
-              <ReactMarkdown>{selected.contentMarkdown}</ReactMarkdown>
+              <ReactMarkdown>{contentWithCta}</ReactMarkdown>
             </div>
           </section>
 
