@@ -13,6 +13,18 @@ const LEGAL_BLOCK =
   "Qodi bilgilendirme amaçlıdır; sunduğu veri, analiz ve içerikler yatırım tavsiyesi niteliği taşımaz. " +
   "Yatırım tavsiyesi değildir.";
 
+/** Kelime doldururken tek cümleyi tekrar etme — çeşitlendirilmiş kapanışlar */
+const PAD_SENTENCES = [
+  "Bu çerçevede Qodi, Matriks veri altyapısıyla kurumsal ekiplere anlaşılır bir deneyim sunar.",
+  "Yerel işleme modeli, gizlilik beklentilerini karşılarken günlük analitik akışı hızlandırır.",
+  "Doğal dil soruları BIST ve ilgili piyasa bağlamında özetlenerek karar desteğine dönüşür.",
+  "Matriks MCP sayesinde aynı yetenek Claude, Cursor ve benzeri araçlara taşınabilir.",
+  "KVKK uyumu ve abartısız anlatım, ürün iletişiminin temel kalite ölçütleridir.",
+  "Finansal asistan senaryolarında net konumlandırma (Qodi ≠ Quantex ≠ MCP) korunur.",
+  "Kurumsal kullanıcılar için erişim, güvenlik ve veri doğruluğu birlikte ele alınır.",
+  "İçerik bilgilendirme amaçlıdır; yatırım kararı yetkili kaynaklara bırakılır.",
+];
+
 function stripMarkdownNoise(md: string): string {
   return md
     .replace(/<!--[\s\S]*?-->/g, "")
@@ -26,27 +38,47 @@ function stripMarkdownNoise(md: string): string {
     .trim();
 }
 
+function splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?…])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.split(/\s+/).length >= 6);
+}
+
 function expandParagraph(
   lead: string,
   source: string,
   targetWords: number
 ): string {
-  const words = source.split(/\s+/).filter(Boolean);
-  const parts: string[] = [lead];
-  let n = lead.split(/\s+/).filter(Boolean).length;
-  let i = 0;
-  while (n < targetWords && i < words.length) {
-    parts.push(words.slice(i, i + 40).join(" "));
-    n += 40;
-    i += 35;
+  const parts: string[] = [lead]
+  let n = lead.split(/\s+/).filter(Boolean).length
+
+  const sourceWords = source.split(/\s+/).filter(Boolean)
+  let i = 0
+  while (n < targetWords && i < sourceWords.length) {
+    const chunk = sourceWords.slice(i, i + 42).join(" ")
+    if (chunk) {
+      parts.push(chunk)
+      n += chunk.split(/\s+/).length
+    }
+    i += 38
   }
-  while (n < targetWords) {
-    parts.push(
-      "Bu yaklaşım, Matriks veri altyapısıyla güçlenen Qodi deneyimini kurumsal kullanıcılar için anlaşılır kılar."
-    );
-    n += 20;
+
+  // Kaynak cümlelerinden çeşitlendirerek doldur (aynı cümleyi peş peşe basma)
+  const fromSource = splitSentences(source)
+  const pool = [...fromSource, ...PAD_SENTENCES]
+  const used = new Set<string>()
+  let guard = 0
+  while (n < targetWords && guard < pool.length * 2) {
+    const candidate = pool[guard % pool.length]
+    guard += 1
+    if (!candidate || used.has(candidate)) continue
+    used.add(candidate)
+    parts.push(candidate)
+    n += candidate.split(/\s+/).filter(Boolean).length
   }
-  return parts.join("\n\n");
+
+  return parts.join("\n\n")
 }
 
 function applyEditorFeedback(

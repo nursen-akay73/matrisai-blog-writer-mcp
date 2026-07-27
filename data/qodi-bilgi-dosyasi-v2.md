@@ -10,7 +10,7 @@
 
 Bu tablo, bu dosyayı sunan bir MCP aracının (`getQodiInfo` veya benzeri) `topic` parametresini hangi bölüme eşleyeceğini **birebir** belirtir. Her başlığın hemen altında, aynı `topic` değerini taşıyan bir `<!-- topic: ... -->` HTML yorumu bulunur (render edilen çıktıda görünmez, ancak dosyayı okuyan bir script ile grep/regex ile kolayca bulunabilir). Kod, başlık metnini eşleştirmeye çalışmak yerine bu yorum satırlarını arayarak bölüm sınırlarını belirlemelidir — başlık metinleri zamanla değişebilir, yorum satırındaki `topic` anahtarları değişmez sözleşmedir.
 
-| `topic` değeri | Bölüm | Kapsam |
+| `topic` değeri | Bölüm | Kapsam | 
 |---|---|---|
 | `genel_tanim` | 1 | Qodi nedir, tek cümlelik tanım, ekosistemdeki yeri |
 | `neden_var` | 2 | Problem & çözüm anlatısı |

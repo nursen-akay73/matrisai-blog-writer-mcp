@@ -132,6 +132,22 @@ curl -s http://127.0.0.1:8787/api/v1/health
 
 ---
 
+## Local UI (MCP Content Portal)
+
+Sıfır maliyetli demo arayüz — API key / cloud LLM yok; mock generator + **Express + SQLite**.
+
+```bash
+cd blog-portal
+npm install
+npm run dev
+```
+
+Login: `admin@matriksdata.com` / `admin123`  
+DB dosyası: `blog-portal/data/blogs.db`  
+Ayrıntı: [blog-portal/README.md](./blog-portal/README.md)
+
+---
+
 ## Config
 
 `config/blog-automation.json` — `everyDays`, `cron`, `scoreThreshold` (80), `maxRevisions` (3), `httpPort`.
@@ -142,3 +158,15 @@ curl -s http://127.0.0.1:8787/api/v1/health
 | `BLOG_HOUR` / `BLOG_CRON` | Saat / cron |
 | `PIPELINE_HTTP_PORT` | Port |
 | `PIPELINE_MCP_STDIO=1` | Gerçek MCP Client (opsiyonel) |
+
+
+# termınal 2
+cd /Users/nursenakay/Desktop/qodi-mcp
+curl -s -X POST http://127.0.0.1:8787/api/v1/trigger-pipeline \
+  -H 'Content-Type: application/json' \
+  -d '{"force":true}'
+
+# termınal2 cıktısı
+cd /Users/nursenakay/Desktop/qodi-mcp
+open data/posts/2026-07-19-qodi-blog.md
+open data/reviews/2026-07-19-review.md
