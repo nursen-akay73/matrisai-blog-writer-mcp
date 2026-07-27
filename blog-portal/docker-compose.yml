@@ -1,0 +1,21 @@
+# Yerel PostgreSQL (ücretsiz)
+# Çalıştır: docker compose up -d
+# .env içine:
+# DATABASE_URL=postgresql://blog:blog@127.0.0.1:5432/blog_portal
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: blog-portal-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: blog
+      POSTGRES_PASSWORD: blog
+      POSTGRES_DB: blog_portal
+    ports:
+      - '5432:5432'
+    volumes:
+      - blog_portal_pg:/var/lib/postgresql/data
+
+volumes:
+  blog_portal_pg:

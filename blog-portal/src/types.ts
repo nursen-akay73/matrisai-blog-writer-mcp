@@ -69,6 +69,8 @@ export interface BlogDraft {
   contentMarkdown: string
   quality: QualityReport
   createdAt: string
+  /** İnsan onayı — otomatik kalite skorundan ayrı */
+  status: 'draft' | 'approved' | 'rejected'
   feedbackNote?: string
   pipeline?: PipelineMeta
 }

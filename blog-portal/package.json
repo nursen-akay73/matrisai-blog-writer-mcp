@@ -4,17 +4,22 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/dev.mjs",
+    "dev": "bash scripts/run-dev.sh",
     "dev:web": "vite --host 127.0.0.1 --port 5173",
     "dev:api": "node server/index.js",
     "build": "tsc -b && vite build",
+    "start": "NODE_ENV=production node server/index.js",
     "lint": "oxlint",
     "preview": "vite preview"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "better-sqlite3": "^11.9.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-markdown": "^10.1.0"

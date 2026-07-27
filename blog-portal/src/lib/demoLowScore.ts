@@ -19,6 +19,7 @@ Kısa metin.`
     audience: 'Corporate',
     contentMarkdown,
     createdAt: new Date().toISOString(),
+    status: 'draft',
     feedbackNote: 'Bu taslak UI testi için eklendi; gerçek pipeline çıktısı değildir.',
     quality: {
       score: 30,

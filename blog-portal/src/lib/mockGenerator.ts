@@ -221,6 +221,7 @@ export function generateMockBlog(input: GenerateFormInput): BlogDraft {
     audience: input.audience,
     contentMarkdown,
     quality,
+    status: 'draft',
     createdAt: new Date().toISOString(),
     feedbackNote: input.feedbackNote?.trim() || undefined,
   }

@@ -6,7 +6,7 @@ import type {
   ChecklistStatus,
   GenerateFormInput,
 } from '../types'
-import { ScoreBadge } from '../components/StatusBadge'
+import { ScoreBadge, ApprovalBadge } from '../components/StatusBadge'
 import {
   downloadPdf,
   downloadText,
@@ -21,6 +21,7 @@ interface Props {
   onDelete: (id: string) => void
   onCreateNew: () => void
   onRevise: (seed: GenerateFormInput) => void
+  onSetStatus: (id: string, status: BlogDraft['status']) => void
 }
 
 type FilterTab = 'all' | 'issues' | 'pass'
@@ -58,6 +59,7 @@ export function Dashboard({
   onDelete,
   onCreateNew,
   onRevise,
+  onSetStatus,
 }: Props) {
   const selected =
     drafts.find((d) => d.id === selectedId) ?? drafts[0] ?? null
@@ -221,6 +223,7 @@ export function Dashboard({
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <ScoreBadge percent={d.quality.percent} />
+                    <ApprovalBadge status={d.status ?? 'draft'} />
                     <span className="text-[10px] text-slate-400">
                       {new Date(d.createdAt).toLocaleString('tr-TR', {
                         day: '2-digit',
@@ -253,6 +256,34 @@ export function Dashboard({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <ScoreBadge percent={q.percent} />
+              <ApprovalBadge status={selected.status ?? 'draft'} />
+              {(selected.status ?? 'draft') !== 'approved' ? (
+                <button
+                  type="button"
+                  onClick={() => onSetStatus(selected.id, 'approved')}
+                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                >
+                  Onayla
+                </button>
+              ) : null}
+              {(selected.status ?? 'draft') !== 'rejected' ? (
+                <button
+                  type="button"
+                  onClick={() => onSetStatus(selected.id, 'rejected')}
+                  className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                >
+                  Reddet
+                </button>
+              ) : null}
+              {(selected.status ?? 'draft') !== 'draft' ? (
+                <button
+                  type="button"
+                  onClick={() => onSetStatus(selected.id, 'draft')}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Taslağa al
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => startRevise()}

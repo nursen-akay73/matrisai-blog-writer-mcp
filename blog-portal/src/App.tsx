@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AppView, BlogDraft, GenerateFormInput } from './types'
 import { AUTH_STORAGE_KEY } from './config/auth'
-import { apiDeleteBlog, apiListBlogs } from './lib/api'
+import { apiDeleteBlog, apiListBlogs, apiUpdateBlogStatus } from './lib/api'
 import { LoginScreen } from './screens/LoginScreen'
 import { GenerateForm } from './screens/GenerateForm'
 import { Dashboard } from './screens/Dashboard'
@@ -76,6 +76,16 @@ export default function App() {
       setSelectedId(next[0]?.id ?? null)
     } catch (err) {
       setApiError(err instanceof Error ? err.message : 'Silinemedi')
+    }
+  }
+
+  async function handleSetStatus(id: string, status: BlogDraft['status']) {
+    setApiError('')
+    try {
+      const updated = await apiUpdateBlogStatus(id, status)
+      setDrafts((prev) => prev.map((d) => (d.id === id ? updated : d)))
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Durum güncellenemedi')
     }
   }
 
@@ -171,6 +181,7 @@ export default function App() {
             selectedId={selectedId}
             onSelect={setSelectedId}
             onDelete={handleDelete}
+            onSetStatus={handleSetStatus}
             onCreateNew={() => {
               setReviseSeed(null)
               setView('generate')

@@ -213,6 +213,7 @@ export async function runRealPipelineAndSave(input) {
     audience: input.audience || 'Corporate',
     contentMarkdown,
     quality,
+    status: 'draft',
     createdAt: new Date().toISOString(),
     feedbackNote: input.feedbackNote || undefined,
     pipeline: {
@@ -231,7 +232,7 @@ export async function runRealPipelineAndSave(input) {
     },
   }
 
-  upsertBlog(draft)
+  await upsertBlog(draft)
   return draft
 }
 

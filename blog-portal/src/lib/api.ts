@@ -55,6 +55,20 @@ export async function apiDeleteBlog(id: string) {
   })
 }
 
+export async function apiUpdateBlogStatus(
+  id: string,
+  status: BlogDraft['status'],
+) {
+  const data = await request<{ ok: boolean; blog: BlogDraft }>(
+    `/blogs/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    },
+  )
+  return data.blog
+}
+
 export async function apiHealth() {
   return request<{ ok: boolean; db: string }>('/health')
 }
