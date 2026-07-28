@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from 'react'
-import { LOCAL_AUTH } from '../config/auth'
 import { LoginBrandHeader } from '../components/MatriksLogo'
 import { LoginBackground } from '../components/LoginBackground'
 import { apiLogin, apiRegister } from '../lib/api'
@@ -25,8 +24,10 @@ export function LoginScreen({ onSuccess }: Props) {
     setError('')
     setPassword('')
     setPassword2('')
-    if (next === 'login' && !email) setEmail(LOCAL_AUTH.email)
-    if (next === 'register') setEmail('')
+    if (next === 'register') {
+      setEmail('')
+      setDisplayName('')
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
