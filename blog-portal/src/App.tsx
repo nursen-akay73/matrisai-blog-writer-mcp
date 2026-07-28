@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AppView, BlogDraft, GenerateFormInput } from './types'
 import { AUTH_STORAGE_KEY } from './config/auth'
-import { apiDeleteBlog, apiListBlogs, apiUpdateBlogStatus } from './lib/api'
+import {
+  apiDeleteBlog,
+  apiHealth,
+  apiListBlogs,
+  apiUpdateBlogStatus,
+} from './lib/api'
 import { LoginScreen } from './screens/LoginScreen'
 import { GenerateForm } from './screens/GenerateForm'
 import { Dashboard } from './screens/Dashboard'
 import { MatriksLogo } from './components/MatriksLogo'
+
+type HealthBadge = {
+  gemini: boolean
+  dbDriver: string
+  mcpLlm: string
+}
 
 export default function App() {
   const [authed, setAuthed] = useState(
@@ -17,6 +28,20 @@ export default function App() {
   const [loadingBlogs, setLoadingBlogs] = useState(false)
   const [apiError, setApiError] = useState('')
   const [reviseSeed, setReviseSeed] = useState<GenerateFormInput | null>(null)
+  const [health, setHealth] = useState<HealthBadge | null>(null)
+
+  const refreshHealth = useCallback(async () => {
+    try {
+      const h = await apiHealth()
+      setHealth({
+        gemini: Boolean(h.gemini),
+        dbDriver: h.dbDriver || '—',
+        mcpLlm: h.mcpLlm || (h.gemini ? 'gemini+mcp' : 'template'),
+      })
+    } catch {
+      setHealth(null)
+    }
+  }, [])
 
   const refreshBlogs = useCallback(async () => {
     setLoadingBlogs(true)
@@ -39,8 +64,9 @@ export default function App() {
   useEffect(() => {
     if (authed) {
       void refreshBlogs()
+      void refreshHealth()
     }
-  }, [authed, refreshBlogs])
+  }, [authed, refreshBlogs, refreshHealth])
 
   useEffect(() => {
     if (!selectedId && drafts[0]) setSelectedId(drafts[0].id)
@@ -56,11 +82,11 @@ export default function App() {
     setAuthed(false)
     setDrafts([])
     setSelectedId(null)
+    setHealth(null)
   }
 
   async function handleGenerated(draft: BlogDraft) {
     setApiError('')
-    // Pipeline endpoint zaten SQLite’a kaydetti
     setDrafts((prev) => [draft, ...prev.filter((d) => d.id !== draft.id)])
     setSelectedId(draft.id)
     setView('dashboard')
@@ -93,9 +119,15 @@ export default function App() {
     return <LoginScreen onSuccess={handleLogin} />
   }
 
+  const dbLabel =
+    health?.dbDriver === 'postgresql'
+      ? 'PostgreSQL'
+      : health?.dbDriver === 'sqlite'
+        ? 'SQLite'
+        : health?.dbDriver || '…'
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#F7F9FC]">
-      {/* Qodi-like soft mesh glow */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -107,10 +139,31 @@ export default function App() {
 
       <header className="relative z-20 border-b border-white/60 bg-white/75 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <MatriksLogo size="sm" />
             <div className="hidden h-6 w-px bg-slate-200 sm:block" />
-            <span className="text-sm font-semibold text-[#2BB8A6]">MCP</span>
+            <span className="text-sm font-semibold text-[#2BB8A6]">
+              MCP Content Portal
+            </span>
+            {health ? (
+              <span
+                className={`hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 sm:inline-flex ${
+                  health.gemini
+                    ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
+                    : 'bg-amber-50 text-amber-800 ring-amber-200'
+                }`}
+                title={health.mcpLlm}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    health.gemini ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`}
+                />
+                {health.gemini
+                  ? `LLM: Gemini · DB: ${dbLabel} · MCP bağlı`
+                  : `Şablon modu · DB: ${dbLabel}`}
+              </span>
+            ) : null}
           </div>
 
           <nav className="flex items-center gap-1 rounded-2xl bg-white/80 p-1 shadow-sm ring-1 ring-slate-200/70">
@@ -163,9 +216,7 @@ export default function App() {
 
       <main className="relative z-10 mx-auto px-4 py-6 sm:px-6 sm:py-8">
         {loadingBlogs && view === 'dashboard' ? (
-          <p className="text-center text-sm text-slate-500">
-            SQLite’tan yükleniyor…
-          </p>
+          <p className="text-center text-sm text-slate-500">Yükleniyor…</p>
         ) : null}
 
         {view === 'generate' ? (

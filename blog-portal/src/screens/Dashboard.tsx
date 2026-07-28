@@ -366,12 +366,10 @@ export function Dashboard({
                   Yayına hazır
                 </p>
                 <h3 className="mt-1 text-lg font-bold text-slate-800">
-                  Onaylandı — Matriks & MCP köprüleri
+                  Onaylandı
                 </h3>
                 <p className="mt-1 max-w-2xl text-sm text-slate-600">
-                  İçerik insan onayı aldı. Aşağıdaki linklerle okuyucuyu Matriks
-                  AI sitesine ve MCP Portal’a yönlendirebilirsiniz. İndirme /
-                  kopyalama onaylı yazıya CTA bloğunu otomatik ekler.
+                  Siteye yüklemez; yayın linkleri.
                 </p>
               </div>
               <button

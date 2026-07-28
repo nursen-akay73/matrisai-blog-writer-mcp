@@ -28,10 +28,7 @@ export function LoginBrandHeader() {
         draggable={false}
       />
       <p className="mt-2 text-[15px] font-medium text-[#6B7280]">
-        Management Portal
-      </p>
-      <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8B7CF0]">
-        Content Portal · Local
+        MCP Content Portal
       </p>
     </div>
   )

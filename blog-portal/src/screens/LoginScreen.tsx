@@ -65,7 +65,7 @@ export function LoginScreen({ onSuccess }: Props) {
           <div className="mb-6">
             <LoginBrandHeader />
             <p className="mt-3 text-center text-[13px] leading-relaxed text-slate-500">
-              Matriks MCP Content Portal — blog üret, onayla, yayınla
+              Blog üret · kalite kontrol · onay
             </p>
           </div>
 

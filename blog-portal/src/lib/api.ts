@@ -91,7 +91,15 @@ export async function apiUpdateBlogStatus(
 }
 
 export async function apiHealth() {
-  return request<{ ok: boolean; db: string }>('/health')
+  return request<{
+    ok: boolean
+    db?: string | null
+    dbDriver?: string | null
+    gemini?: boolean
+    mcpLlm?: string | null
+    auth?: string | null
+    ready?: boolean
+  }>('/health')
 }
 
 /** Gerçek MD pipeline + self-correction (uzun sürebilir) */

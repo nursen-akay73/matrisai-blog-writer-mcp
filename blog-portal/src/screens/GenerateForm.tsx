@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { Audience, BlogDraft, GenerateFormInput, Product } from '../types'
 import { PROMPT_TEMPLATES } from '../lib/mockGenerator'
-import { apiRunPipeline, apiSaveBlog } from '../lib/api'
-import { buildLowScoreDemoDraft } from '../lib/demoLowScore'
+import { apiRunPipeline } from '../lib/api'
 
 const PRODUCTS: Product[] = [
   'Qodi',
@@ -56,21 +55,6 @@ export function GenerateForm({
 
   function applyTemplate() {
     setScope(templateHint)
-  }
-
-  async function handleDemoLowScore() {
-    if (phase !== 'idle') return
-    onError?.('')
-    try {
-      const draft = buildLowScoreDemoDraft()
-      const saved = await apiSaveBlog(draft)
-      setStatus('Demo düşük skor taslağı eklendi (skor ~30).')
-      await onGenerated(saved)
-    } catch (err) {
-      onError?.(
-        err instanceof Error ? err.message : 'Demo taslak eklenemedi',
-      )
-    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -230,14 +214,6 @@ export function GenerateForm({
           {buttonLabel}
         </button>
 
-        <button
-          type="button"
-          onClick={() => void handleDemoLowScore()}
-          disabled={phase !== 'idle'}
-          className="ml-0 block text-xs font-semibold text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline sm:ml-3 sm:inline"
-        >
-          Demo: düşük skor örneği ekle (~30)
-        </button>
       </form>
     </div>
   )
