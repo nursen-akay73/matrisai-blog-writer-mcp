@@ -130,6 +130,29 @@ async function handle(req, res) {
       })
     }
 
+    if (method === 'POST' && pathname === '/api/auth/register') {
+      const body = await readJson(req)
+      if (body === null) {
+        return sendJson(res, 400, { ok: false, error: 'Geçersiz JSON' })
+      }
+      const database = await ensureDb()
+      const result = await database.registerUser({
+        email: body.email,
+        password: body.password,
+        displayName: body.displayName,
+      })
+      if (!result.ok) {
+        const status = /zaten kayıtlı/i.test(result.error || '') ? 409 : 400
+        return sendJson(res, status, { ok: false, error: result.error })
+      }
+      return sendJson(res, 201, {
+        ok: true,
+        token: `db-${result.user.id}`,
+        user: result.user,
+        authSource: 'database',
+      })
+    }
+
     // Aşağıdaki route'lar sqlite ister
     const database = await ensureDb()
 

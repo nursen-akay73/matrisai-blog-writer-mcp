@@ -30,9 +30,30 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function apiLogin(email: string, password: string) {
-  return request<{ ok: boolean; token: string }>('/auth/login', {
+  return request<{
+    ok: boolean
+    token: string
+    user?: { id: string; email: string; displayName?: string }
+    authSource?: string
+  }>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+  })
+}
+
+export async function apiRegister(
+  email: string,
+  password: string,
+  displayName?: string,
+) {
+  return request<{
+    ok: boolean
+    token: string
+    user?: { id: string; email: string; displayName?: string }
+    authSource?: string
+  }>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, displayName }),
   })
 }
 

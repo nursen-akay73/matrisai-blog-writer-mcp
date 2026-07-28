@@ -374,3 +374,68 @@ export async function authenticateUser(email, password) {
     displayName: user.display_name || undefined,
   }
 }
+
+/**
+ * Ücretsiz kayıt — users tablosuna yazar.
+ * @returns {{ ok: true, user: object } | { ok: false, error: string }}
+ */
+export async function registerUser({ email, password, displayName }) {
+  const normalized = String(email || '')
+    .trim()
+    .toLowerCase()
+  const pass = String(password || '')
+  const name = String(displayName || '')
+    .trim()
+    .slice(0, 80)
+
+  if (!normalized || !normalized.includes('@')) {
+    return { ok: false, error: 'Geçerli bir e-posta girin' }
+  }
+  if (pass.length < 6) {
+    return { ok: false, error: 'Şifre en az 6 karakter olmalı' }
+  }
+
+  const id = `user-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`
+  const createdAt = new Date().toISOString()
+  const passwordHash = hashPassword(pass)
+
+  if (usePostgres) {
+    const pool = await initPostgres()
+    const existing = await pool.query(`SELECT id FROM users WHERE email = $1`, [
+      normalized,
+    ])
+    if (existing.rows.length) {
+      return { ok: false, error: 'Bu e-posta zaten kayıtlı — giriş yapın' }
+    }
+    await pool.query(
+      `INSERT INTO users (id, email, password_hash, display_name, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, normalized, passwordHash, name || null, createdAt],
+    )
+    return {
+      ok: true,
+      user: { id, email: normalized, displayName: name || undefined },
+    }
+  }
+
+  const db = await initSqlite()
+  const row = db.prepare(`SELECT id FROM users WHERE email = ?`).get(normalized)
+  if (row) {
+    return { ok: false, error: 'Bu e-posta zaten kayıtlı — giriş yapın' }
+  }
+  try {
+    db.prepare(
+      `INSERT INTO users (id, email, password_hash, display_name, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(id, normalized, passwordHash, name || null, createdAt)
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Kayıt başarısız',
+    }
+  }
+  return {
+    ok: true,
+    user: { id, email: normalized, displayName: name || undefined },
+  }
+}
