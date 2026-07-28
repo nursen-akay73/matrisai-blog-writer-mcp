@@ -69,6 +69,93 @@ async function ensureBridge() {
   return bridge
 }
 
+async function runPipelineOnce(input) {
+  const useGemini = hasGeminiKey()
+  if (useGemini) {
+    const { runGeminiMcpPipelineAndSave } = await import(
+      './gemini-mcp-pipeline.js'
+    )
+    return {
+      blog: await runGeminiMcpPipelineAndSave(input),
+      mode: 'gemini-mcp',
+    }
+  }
+  const { runRealPipelineAndSave } = await ensureBridge()
+  return {
+    blog: await runRealPipelineAndSave(input),
+    mode: 'template-pipeline',
+  }
+}
+
+function cronAuthorized(req) {
+  const secret = (process.env.CRON_SECRET || '').trim()
+  if (!secret) {
+    // Yerel/dev: secret yoksa açık (UI “Şimdi çalıştır” için)
+    return !isProd
+  }
+  const header =
+    req.headers['x-cron-secret'] ||
+    (String(req.headers.authorization || '').startsWith('Bearer ')
+      ? String(req.headers.authorization).slice(7)
+      : '')
+  return header === secret
+}
+
+async function runNextFromQueue(database) {
+  if (pipelineBusy) {
+    return { status: 409, body: { ok: false, error: 'Pipeline zaten çalışıyor' } }
+  }
+  const claimed = await database.claimNextPending()
+  if (!claimed) {
+    return {
+      status: 200,
+      body: { ok: true, ran: false, message: 'Kuyrukta pending konu yok' },
+    }
+  }
+
+  pipelineBusy = true
+  const started = Date.now()
+  console.log(
+    `[blog-api] queue → ${claimed.product}: ${claimed.scope.slice(0, 60)}…`,
+  )
+  try {
+    const { blog, mode } = await runPipelineOnce({
+      product: claimed.product,
+      scope: claimed.scope,
+      audience: claimed.audience,
+    })
+    await database.completeQueueItem(claimed.id, blog.id)
+    console.log('[blog-api] queue OK', blog.id, Date.now() - started, 'ms')
+    return {
+      status: 201,
+      body: {
+        ok: true,
+        ran: true,
+        queueId: claimed.id,
+        blog,
+        elapsedMs: Date.now() - started,
+        mode,
+      },
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    await database.failQueueItem(claimed.id, msg)
+    console.error('[blog-api] queue FAIL', msg)
+    return {
+      status: 500,
+      body: {
+        ok: false,
+        ran: true,
+        queueId: claimed.id,
+        error: msg,
+        elapsedMs: Date.now() - started,
+      },
+    }
+  } finally {
+    pipelineBusy = false
+  }
+}
+
 async function handle(req, res) {
   const url = new URL(req.url || '/', `http://127.0.0.1:${PORT}`)
   const { pathname } = url
@@ -239,32 +326,18 @@ async function handle(req, res) {
           : '[blog-api] şablon pipeline başladı…',
       )
       try {
-        let blog
-        if (useGemini) {
-          const { runGeminiMcpPipelineAndSave } = await import(
-            './gemini-mcp-pipeline.js'
-          )
-          blog = await runGeminiMcpPipelineAndSave({
-            product,
-            scope,
-            audience,
-            feedbackNote,
-          })
-        } else {
-          const { runRealPipelineAndSave } = await ensureBridge()
-          blog = await runRealPipelineAndSave({
-            product,
-            scope,
-            audience,
-            feedbackNote,
-          })
-        }
+        const { blog, mode } = await runPipelineOnce({
+          product,
+          scope,
+          audience,
+          feedbackNote,
+        })
         console.log('[blog-api] pipeline OK', Date.now() - started, 'ms')
         return sendJson(res, 201, {
           ok: true,
           blog,
           elapsedMs: Date.now() - started,
-          mode: useGemini ? 'gemini-mcp' : 'template-pipeline',
+          mode,
         })
       } catch (err) {
         console.error('[blog-api] pipeline FAIL', err)
@@ -276,6 +349,70 @@ async function handle(req, res) {
       } finally {
         pipelineBusy = false
       }
+    }
+
+    if (method === 'GET' && pathname === '/api/queue') {
+      return sendJson(res, 200, {
+        ok: true,
+        items: await database.listQueue(),
+      })
+    }
+
+    if (method === 'POST' && pathname === '/api/queue') {
+      const body = await readJson(req)
+      if (body === null) {
+        return sendJson(res, 400, { ok: false, error: 'Geçersiz JSON' })
+      }
+      try {
+        const item = await database.addQueueItem({
+          product: body.product,
+          scope: body.scope,
+          audience: body.audience,
+        })
+        return sendJson(res, 201, { ok: true, item })
+      } catch (err) {
+        return sendJson(res, 400, {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+
+    const queueMatch = pathname.match(/^\/api\/queue\/([^/]+)$/)
+    if (method === 'DELETE' && queueMatch) {
+      const removed = await database.deleteQueueItem(
+        decodeURIComponent(queueMatch[1]),
+      )
+      if (!removed) return sendJson(res, 404, { ok: false, error: 'Bulunamadı' })
+      return sendJson(res, 200, { ok: true })
+    }
+
+    if (method === 'POST' && pathname === '/api/queue/run-next') {
+      const result = await runNextFromQueue(database)
+      return sendJson(res, result.status, result.body)
+    }
+
+    const queueRetry = pathname.match(/^\/api\/queue\/([^/]+)\/retry$/)
+    if (method === 'POST' && queueRetry) {
+      const ok = await database.resetQueueItemToPending(
+        decodeURIComponent(queueRetry[1]),
+      )
+      if (!ok) {
+        return sendJson(res, 404, {
+          ok: false,
+          error: 'Yeniden kuyruğa alınamadı',
+        })
+      }
+      return sendJson(res, 200, { ok: true })
+    }
+
+    // Render Cron / harici zamanlayıcı — CRON_SECRET ile
+    if (method === 'POST' && pathname === '/api/cron/run-next') {
+      if (!cronAuthorized(req)) {
+        return sendJson(res, 401, { ok: false, error: 'CRON_SECRET gerekli' })
+      }
+      const result = await runNextFromQueue(database)
+      return sendJson(res, result.status, result.body)
     }
 
     return sendJson(res, 404, { ok: false, error: 'Not found' })

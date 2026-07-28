@@ -5,6 +5,7 @@ import { apiDeleteBlog, apiListBlogs, apiUpdateBlogStatus } from './lib/api'
 import { LoginScreen } from './screens/LoginScreen'
 import { GenerateForm } from './screens/GenerateForm'
 import { Dashboard } from './screens/Dashboard'
+import { QueueScreen } from './screens/QueueScreen'
 import { MatriksLogo } from './components/MatriksLogo'
 
 export default function App() {
@@ -141,6 +142,17 @@ export default function App() {
                 </span>
               ) : null}
             </button>
+            <button
+              type="button"
+              onClick={() => setView('queue')}
+              className={`rounded-xl px-3.5 py-1.5 text-sm font-semibold transition ${
+                view === 'queue'
+                  ? 'bg-[#3B82F6] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Kuyruk
+            </button>
           </nav>
 
           <button
@@ -172,6 +184,14 @@ export default function App() {
             onError={(msg) => setApiError(msg)}
             reviseSeed={reviseSeed}
             onReviseSeedConsumed={() => setReviseSeed(null)}
+          />
+        ) : view === 'queue' ? (
+          <QueueScreen
+            onError={(msg) => setApiError(msg)}
+            onDraftCreated={() => {
+              void refreshBlogs()
+              setView('dashboard')
+            }}
           />
         ) : (
           <Dashboard

@@ -82,4 +82,16 @@ export interface GenerateFormInput {
   feedbackNote?: string
 }
 
-export type AppView = 'generate' | 'dashboard'
+export type AppView = 'generate' | 'dashboard' | 'queue'
+
+export interface QueueItem {
+  id: string
+  product: Product
+  scope: string
+  audience: Audience
+  status: 'pending' | 'running' | 'done' | 'failed'
+  blogId?: string | null
+  error?: string | null
+  createdAt: string
+  updatedAt: string
+}

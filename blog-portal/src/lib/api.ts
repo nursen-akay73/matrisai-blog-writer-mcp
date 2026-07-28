@@ -1,4 +1,4 @@
-import type { BlogDraft } from '../types'
+import type { BlogDraft, QueueItem } from '../types'
 
 const API_BASE = '/api'
 
@@ -116,4 +116,46 @@ export async function apiRunPipeline(input: {
       body: JSON.stringify(input),
     },
   )
+}
+
+export async function apiListQueue() {
+  const data = await request<{ ok: boolean; items: QueueItem[] }>('/queue')
+  return data.items
+}
+
+export async function apiAddQueueItem(input: {
+  product: string
+  scope: string
+  audience: string
+}) {
+  const data = await request<{ ok: boolean; item: QueueItem }>('/queue', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.item
+}
+
+export async function apiDeleteQueueItem(id: string) {
+  return request<{ ok: boolean }>(`/queue/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function apiRetryQueueItem(id: string) {
+  return request<{ ok: boolean }>(
+    `/queue/${encodeURIComponent(id)}/retry`,
+    { method: 'POST' },
+  )
+}
+
+export async function apiRunNextQueue() {
+  return request<{
+    ok: boolean
+    ran?: boolean
+    message?: string
+    error?: string
+    blog?: BlogDraft
+    queueId?: string
+    elapsedMs?: number
+  }>('/queue/run-next', { method: 'POST' })
 }

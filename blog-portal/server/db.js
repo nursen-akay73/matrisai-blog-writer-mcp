@@ -116,6 +116,7 @@ async function initPostgres() {
     END $$;
   `)
   await ensureUsersTablePg(pgPool)
+  await ensureTopicQueuePg(pgPool)
   return pgPool
 }
 
@@ -146,6 +147,7 @@ async function initSqlite() {
     sqlite.exec(`ALTER TABLE blogs ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'`)
   }
   ensureUsersTableSqlite(sqlite)
+  ensureTopicQueueSqlite(sqlite)
   return sqlite
 }
 
@@ -297,16 +299,285 @@ export async function deleteBlog(id) {
   return result.changes > 0
 }
 
+async function ensureTopicQueuePg(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS topic_queue (
+      id TEXT PRIMARY KEY,
+      product TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      audience TEXT NOT NULL DEFAULT 'Corporate',
+      status TEXT NOT NULL DEFAULT 'pending',
+      blog_id TEXT,
+      error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `)
+}
+
+function ensureTopicQueueSqlite(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS topic_queue (
+      id TEXT PRIMARY KEY,
+      product TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      audience TEXT NOT NULL DEFAULT 'Corporate',
+      status TEXT NOT NULL DEFAULT 'pending',
+      blog_id TEXT,
+      error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `)
+}
+
+function rowToQueueItem(row) {
+  return {
+    id: row.id,
+    product: row.product,
+    scope: row.scope,
+    audience: row.audience || 'Corporate',
+    status: row.status || 'pending',
+    blogId: row.blog_id || null,
+    error: row.error || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+const DEFAULT_QUEUE_TOPICS = [
+  {
+    product: 'Qodi',
+    scope:
+      'Qodi’nin Analitik MCP ile doğal dilde BIST teknik analiz ve KAP özeti sunmasını; güvenli/yerel işleme vurgusuyla anlat.',
+    audience: 'Corporate',
+  },
+  {
+    product: 'Matriks MCP',
+    scope:
+      'Matriks MCP Portal’da API key alıp Claude / Cursor’a bağlanma adımlarını kurumsal tonla anlat.',
+    audience: 'Corporate',
+  },
+  {
+    product: 'Quantex',
+    scope:
+      'Quantex’in anomali ve emir defteri sinyallerini Qodi ekosisteminde nasıl değer yarattığını anlat.',
+    audience: 'Corporate',
+  },
+]
+
 /** Başlangıçta bağlantıyı ısıt + demo kullanıcıyı seed et */
 export async function ensureDbReady() {
   if (usePostgres) {
     await initPostgres()
     await seedDemoUser()
+    await seedDefaultQueueTopics()
     return { driver: 'postgresql', target: dbPath, auth: 'users-table' }
   }
   await initSqlite()
   await seedDemoUser()
+  await seedDefaultQueueTopics()
   return { driver: 'sqlite', target: sqlitePath, auth: 'users-table' }
+}
+
+/** Kuyruk boşsa örnek konular ekle (cron demosu) */
+export async function seedDefaultQueueTopics() {
+  const existing = await listQueue()
+  if (existing.length > 0) return { seeded: 0 }
+  let seeded = 0
+  for (const t of DEFAULT_QUEUE_TOPICS) {
+    await addQueueItem(t)
+    seeded += 1
+  }
+  return { seeded }
+}
+
+export async function listQueue() {
+  if (usePostgres) {
+    const pool = await initPostgres()
+    const { rows } = await pool.query(
+      `SELECT * FROM topic_queue ORDER BY
+         CASE status
+           WHEN 'pending' THEN 0
+           WHEN 'running' THEN 1
+           WHEN 'failed' THEN 2
+           ELSE 3
+         END,
+         created_at ASC`,
+    )
+    return rows.map(rowToQueueItem)
+  }
+  const db = await initSqlite()
+  return db
+    .prepare(
+      `SELECT * FROM topic_queue ORDER BY
+         CASE status
+           WHEN 'pending' THEN 0
+           WHEN 'running' THEN 1
+           WHEN 'failed' THEN 2
+           ELSE 3
+         END,
+         created_at ASC`,
+    )
+    .all()
+    .map(rowToQueueItem)
+}
+
+export async function addQueueItem(input) {
+  const now = new Date().toISOString()
+  const item = {
+    id: `q-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+    product: String(input.product || 'Qodi').trim(),
+    scope: String(input.scope || '').trim(),
+    audience: String(input.audience || 'Corporate').trim(),
+    status: 'pending',
+    blog_id: null,
+    error: null,
+    created_at: now,
+    updated_at: now,
+  }
+  if (!item.scope) throw new Error('scope zorunlu')
+
+  if (usePostgres) {
+    const pool = await initPostgres()
+    await pool.query(
+      `INSERT INTO topic_queue (id, product, scope, audience, status, blog_id, error, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        item.id,
+        item.product,
+        item.scope,
+        item.audience,
+        item.status,
+        item.blog_id,
+        item.error,
+        item.created_at,
+        item.updated_at,
+      ],
+    )
+    return rowToQueueItem(item)
+  }
+
+  const db = await initSqlite()
+  db.prepare(
+    `INSERT INTO topic_queue (id, product, scope, audience, status, blog_id, error, created_at, updated_at)
+     VALUES (@id, @product, @scope, @audience, @status, @blog_id, @error, @created_at, @updated_at)`,
+  ).run(item)
+  return rowToQueueItem(item)
+}
+
+/** En eski pending’i running yapıp döndür (tek worker) */
+export async function claimNextPending() {
+  const now = new Date().toISOString()
+  if (usePostgres) {
+    const pool = await initPostgres()
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const { rows } = await client.query(
+        `SELECT * FROM topic_queue WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
+      )
+      if (!rows[0]) {
+        await client.query('COMMIT')
+        return null
+      }
+      await client.query(
+        `UPDATE topic_queue SET status = 'running', updated_at = $1, error = NULL WHERE id = $2`,
+        [now, rows[0].id],
+      )
+      await client.query('COMMIT')
+      return rowToQueueItem({
+        ...rows[0],
+        status: 'running',
+        updated_at: now,
+        error: null,
+      })
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  }
+
+  const db = await initSqlite()
+  const row = db
+    .prepare(
+      `SELECT * FROM topic_queue WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1`,
+    )
+    .get()
+  if (!row) return null
+  db.prepare(
+    `UPDATE topic_queue SET status = 'running', updated_at = ?, error = NULL WHERE id = ?`,
+  ).run(now, row.id)
+  return rowToQueueItem({ ...row, status: 'running', updated_at: now, error: null })
+}
+
+export async function completeQueueItem(id, blogId) {
+  const now = new Date().toISOString()
+  if (usePostgres) {
+    const pool = await initPostgres()
+    await pool.query(
+      `UPDATE topic_queue SET status = 'done', blog_id = $1, updated_at = $2, error = NULL WHERE id = $3`,
+      [blogId, now, id],
+    )
+    return
+  }
+  const db = await initSqlite()
+  db.prepare(
+    `UPDATE topic_queue SET status = 'done', blog_id = ?, updated_at = ?, error = NULL WHERE id = ?`,
+  ).run(blogId, now, id)
+}
+
+export async function failQueueItem(id, error) {
+  const now = new Date().toISOString()
+  const msg = String(error || 'Hata').slice(0, 2000)
+  if (usePostgres) {
+    const pool = await initPostgres()
+    await pool.query(
+      `UPDATE topic_queue SET status = 'failed', error = $1, updated_at = $2 WHERE id = $3`,
+      [msg, now, id],
+    )
+    return
+  }
+  const db = await initSqlite()
+  db.prepare(
+    `UPDATE topic_queue SET status = 'failed', error = ?, updated_at = ? WHERE id = ?`,
+  ).run(msg, now, id)
+}
+
+export async function deleteQueueItem(id) {
+  if (usePostgres) {
+    const pool = await initPostgres()
+    const result = await pool.query(`DELETE FROM topic_queue WHERE id = $1`, [
+      id,
+    ])
+    return result.rowCount > 0
+  }
+  const db = await initSqlite()
+  const result = db.prepare(`DELETE FROM topic_queue WHERE id = ?`).run(id)
+  return result.changes > 0
+}
+
+export async function resetQueueItemToPending(id) {
+  const now = new Date().toISOString()
+  if (usePostgres) {
+    const pool = await initPostgres()
+    const result = await pool.query(
+      `UPDATE topic_queue SET status = 'pending', error = NULL, blog_id = NULL, updated_at = $1
+       WHERE id = $2 AND status IN ('failed', 'done')`,
+      [now, id],
+    )
+    return result.rowCount > 0
+  }
+  const db = await initSqlite()
+  const result = db
+    .prepare(
+      `UPDATE topic_queue SET status = 'pending', error = NULL, blog_id = NULL, updated_at = ?
+       WHERE id = ? AND status IN ('failed', 'done')`,
+    )
+    .run(now, id)
+  return result.changes > 0
 }
 
 /** Demo hesabı users tablosuna yazar (yoksa). Şifre scrypt hash. */

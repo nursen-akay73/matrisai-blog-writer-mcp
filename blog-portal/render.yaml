@@ -1,6 +1,9 @@
 # Render Blueprint — blog-portal
 # Dashboard: New → Blueprint → bu repo
 # veya Web Service: Root Directory = blog-portal
+#
+# Cron: Pazartesi–Cuma ~06:00 UTC (= 09:00 TR) kuyruktan 1 draft üretir.
+# CRON_SECRET'ı Web Service Environment ile aynı yapın.
 
 services:
   - type: web
@@ -20,3 +23,20 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
+      - key: CRON_SECRET
+        sync: false
+
+  - type: cron
+    name: matriks-mcp-blog-queue
+    runtime: node
+    plan: free
+    rootDir: blog-portal
+    schedule: "0 6 * * 1-5"
+    buildCommand: "true"
+    startCommand: |
+      node -e "const s=process.env.CRON_SECRET||'';const u=process.env.PORTAL_URL||'https://matrisai-blog-writer-mcp-1.onrender.com';fetch(u+'/api/cron/run-next',{method:'POST',headers:{'x-cron-secret':s,'Content-Type':'application/json'}}).then(async r=>{const t=await r.text();console.log(r.status,t);if(!r.ok)process.exit(1)}).catch(e=>{console.error(e);process.exit(1)})"
+    envVars:
+      - key: CRON_SECRET
+        sync: false
+      - key: PORTAL_URL
+        value: https://matrisai-blog-writer-mcp-1.onrender.com
