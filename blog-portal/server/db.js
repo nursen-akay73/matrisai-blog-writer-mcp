@@ -3,9 +3,11 @@
  * - Varsayılan: SQLite (blog-portal/data/blogs.db) — yerel demo
  * - DATABASE_URL varsa: PostgreSQL (Neon / Docker / prod)
  */
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { LOCAL_AUTH } from './config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const dataDir = path.join(__dirname, '..', 'data')
@@ -41,6 +43,48 @@ let sqlite = null
 export const dbPath = usePostgres ? databaseUrl.replace(/:[^:@/]+@/, ':***@') : sqlitePath
 export const dbDriver = usePostgres ? 'postgresql' : 'sqlite'
 
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex')
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex')
+  return `${salt}:${hash}`
+}
+
+function verifyPassword(password, stored) {
+  if (!stored || !stored.includes(':')) return false
+  const [salt, hash] = stored.split(':')
+  if (!salt || !hash) return false
+  const next = crypto.scryptSync(password, salt, 64).toString('hex')
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(next, 'hex'))
+  } catch {
+    return false
+  }
+}
+
+async function ensureUsersTablePg(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      display_name TEXT,
+      created_at TEXT NOT NULL
+    );
+  `)
+}
+
+function ensureUsersTableSqlite(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      display_name TEXT,
+      created_at TEXT NOT NULL
+    );
+  `)
+}
+
 async function initPostgres() {
   if (pgPool) return pgPool
   const { default: pg } = await import('pg')
@@ -71,6 +115,7 @@ async function initPostgres() {
     EXCEPTION WHEN duplicate_column THEN NULL;
     END $$;
   `)
+  await ensureUsersTablePg(pgPool)
   return pgPool
 }
 
@@ -100,6 +145,7 @@ async function initSqlite() {
   if (!cols.includes('status')) {
     sqlite.exec(`ALTER TABLE blogs ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'`)
   }
+  ensureUsersTableSqlite(sqlite)
   return sqlite
 }
 
@@ -251,12 +297,80 @@ export async function deleteBlog(id) {
   return result.changes > 0
 }
 
-/** Başlangıçta bağlantıyı ısıt */
+/** Başlangıçta bağlantıyı ısıt + demo kullanıcıyı seed et */
 export async function ensureDbReady() {
   if (usePostgres) {
     await initPostgres()
-    return { driver: 'postgresql', target: dbPath }
+    await seedDemoUser()
+    return { driver: 'postgresql', target: dbPath, auth: 'users-table' }
   }
   await initSqlite()
-  return { driver: 'sqlite', target: sqlitePath }
+  await seedDemoUser()
+  return { driver: 'sqlite', target: sqlitePath, auth: 'users-table' }
+}
+
+/** Demo hesabı users tablosuna yazar (yoksa). Şifre scrypt hash. */
+export async function seedDemoUser() {
+  const email = LOCAL_AUTH.email.trim().toLowerCase()
+  const password = LOCAL_AUTH.password
+  const id = 'user-demo-nursen'
+  const displayName = 'Nurşen Akay'
+  const createdAt = new Date().toISOString()
+
+  if (usePostgres) {
+    const pool = await initPostgres()
+    const existing = await pool.query(`SELECT id FROM users WHERE email = $1`, [email])
+    if (existing.rows.length) return { seeded: false, email }
+    await pool.query(
+      `INSERT INTO users (id, email, password_hash, display_name, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, email, hashPassword(password), displayName, createdAt],
+    )
+    console.log('[db] demo kullanıcı seed edildi →', email)
+    return { seeded: true, email }
+  }
+
+  const db = await initSqlite()
+  const row = db.prepare(`SELECT id FROM users WHERE email = ?`).get(email)
+  if (row) return { seeded: false, email }
+  db.prepare(
+    `INSERT INTO users (id, email, password_hash, display_name, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(id, email, hashPassword(password), displayName, createdAt)
+  console.log('[db] demo kullanıcı seed edildi →', email)
+  return { seeded: true, email }
+}
+
+/** Login: users tablosundan doğrula */
+export async function authenticateUser(email, password) {
+  const normalized = String(email || '')
+    .trim()
+    .toLowerCase()
+  if (!normalized || !password) return null
+
+  if (usePostgres) {
+    const pool = await initPostgres()
+    const { rows } = await pool.query(
+      `SELECT id, email, password_hash, display_name FROM users WHERE email = $1`,
+      [normalized],
+    )
+    const user = rows[0]
+    if (!user || !verifyPassword(password, user.password_hash)) return null
+    return {
+      id: user.id,
+      email: user.email,
+      displayName: user.display_name || undefined,
+    }
+  }
+
+  const db = await initSqlite()
+  const user = db
+    .prepare(`SELECT id, email, password_hash, display_name FROM users WHERE email = ?`)
+    .get(normalized)
+  if (!user || !verifyPassword(password, user.password_hash)) return null
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.display_name || undefined,
+  }
 }

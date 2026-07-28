@@ -106,7 +106,7 @@ export function LoginScreen({ onSuccess }: Props) {
             </span>
           </p>
           <p className="mt-1 text-center text-[12px] text-slate-400">
-            Şifre: admin1234 · SQLite yerel API
+            Şifre: admin1234 · kullanıcılar veritabanında (users)
           </p>
         </div>
       </div>

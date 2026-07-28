@@ -6,7 +6,6 @@ import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { LOCAL_AUTH } from './config.js'
 import { hasGeminiKey, loadPortalEnv } from './gemini-mcp-pipeline.js'
 
 loadPortalEnv()
@@ -94,9 +93,11 @@ async function handle(req, res) {
         ready,
         db: db?.dbPath ?? null,
         dbDriver: db?.dbDriver ?? null,
+        auth: 'users-table',
+        gemini: hasGeminiKey(),
+        mcpLlm: hasGeminiKey() ? 'gemini+mcp' : 'template',
         qodiRoot: bridge?.QODI_ROOT ?? null,
         pipelineBusy,
-        gemini: hasGeminiKey(),
       })
     }
 
@@ -105,19 +106,27 @@ async function handle(req, res) {
       if (body === null) {
         return sendJson(res, 400, { ok: false, error: 'Geçersiz JSON' })
       }
+      const database = await ensureDb()
       const email = String(body.email || '')
         .trim()
         .toLowerCase()
       const password = String(body.password || '')
-      if (
-        email === LOCAL_AUTH.email.toLowerCase() &&
-        password === LOCAL_AUTH.password
-      ) {
-        return sendJson(res, 200, { ok: true, token: 'local-demo-token' })
+      const user = await database.authenticateUser(email, password)
+      if (!user) {
+        return sendJson(res, 401, {
+          ok: false,
+          error: 'E-posta veya şifre hatalı',
+        })
       }
-      return sendJson(res, 401, {
-        ok: false,
-        error: 'E-posta veya şifre hatalı',
+      return sendJson(res, 200, {
+        ok: true,
+        token: `db-${user.id}`,
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+        },
+        authSource: 'database',
       })
     }
 
